@@ -1,0 +1,15 @@
+{
+  "name": "Pit Lane Escape",
+  "short_name": "Pit Lane",
+  "description": "A Formula 1 themed sliding-block puzzle. Clear pit lane and get your race car to the exit.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#131519",
+  "theme_color": "#131519",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
