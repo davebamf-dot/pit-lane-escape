@@ -1,0 +1,1458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A Formula 1 themed sliding-block puzzle. Clear pit lane and get your race car to the exit.">
+<meta name="theme-color" content="#131519">
+<title>Pit Lane Escape</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,400;0,600;0,700;0,900;1,700;1,900&family=Share+Tech+Mono&display=swap">
+<style>body { margin: 0; }</style>
+</head>
+<body>
+<style>
+/* Layout: pit-wall console. Left: session + grid pickers, timing strip, the board, race control. Right: the timing sheet. Single dark night-race look by choice. */
+:root {
+  color-scheme: dark;
+  --asphalt: #131519;
+  --asphalt-2: #1b1e24;
+  --asphalt-3: #272b33;
+  --console: #0a0b0d;
+  --paint: #e8e5de;
+  --red: #e10600;
+  --red-deep: #8f0400;
+  --kerb-white: #f3f1ec;
+  --yellow: #ffd400;
+  --green: #1fd17a;
+  --purple: #b55cff;
+  --muted: #8d929c;
+  --ink: #f5f4f1;
+  --display: "Titillium Web", "Arial Narrow", "Segoe UI", sans-serif;
+  --body: "Titillium Web", "Segoe UI", system-ui, sans-serif;
+  --mono: "Share Tech Mono", ui-monospace, "Consolas", monospace;
+  --kerb: 14px;
+  --cell: 64px;
+  --lane: 2;
+}
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  background:
+    radial-gradient(1100px 520px at 15% -12%, #2b1315 0%, transparent 62%),
+    var(--asphalt);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+
+.shell {
+  max-width: 1180px; margin: 0 auto;
+  padding-block: 18px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 18px;
+}
+
+/* ---------- header ---------- */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.brand h1 {
+  margin: 0; font-family: var(--display); font-weight: 900; font-style: italic;
+  font-size: clamp(28px, 4.6vw, 42px); line-height: 1; letter-spacing: -0.01em; text-transform: uppercase;
+}
+.brand h1 span { color: var(--red); }
+.brand .tag { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
+.lights { display: flex; gap: 6px; padding: 6px 8px; background: var(--console); border-radius: 6px; border: 1px solid var(--asphalt-3); }
+.pod { display: grid; gap: 4px; padding: 3px; background: #15171b; border-radius: 4px; }
+.pod i { width: 13px; height: 13px; border-radius: 50%; background: #2b0d0d; display: block; transition: background .1s, box-shadow .1s; }
+.pod.on i { background: var(--red); box-shadow: 0 0 10px var(--red); }
+.lights.go .pod i:last-child { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+/* ---------- layout ---------- */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.track { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+/* pickers */
+.pickers { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+@media (max-width: 620px) { .pickers { grid-template-columns: minmax(0, 1fr); } }
+.picker-label { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .14em; text-transform: uppercase; margin-bottom: 5px; display: block; }
+.seg { display: grid; gap: 4px; padding: 4px; background: var(--console); border: 1px solid var(--asphalt-3); border-radius: 8px; }
+.seg.sessions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.seg.grids { grid-template-columns: repeat(3, auto); }
+@media (max-width: 460px) { .seg.sessions { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.seg button {
+  background: transparent; border: 0; border-radius: 5px; padding: 7px 10px; text-align: left;
+  display: flex; flex-direction: column; gap: 0; min-width: 0;
+}
+.seg button b { font-family: var(--display); font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: .03em; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seg button small { font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.3; }
+.seg.grids button { text-align: center; padding-inline: 14px; }
+.seg.grids button b { font-family: var(--mono); font-weight: 400; font-size: 16px; }
+.seg button:hover { background: var(--asphalt-2); }
+.seg button[aria-pressed="true"] { background: var(--red); }
+.seg button[aria-pressed="true"] small { color: #ffd9d6; }
+
+/* timing strip */
+.timing {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  grid-template-areas: "lap sess time moves par";
+  background: var(--console); border-radius: 8px; overflow: hidden; border: 1px solid var(--asphalt-3);
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+}
+.timing > div { padding: 8px 14px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.timing label { font-size: 10px; color: var(--muted); letter-spacing: .14em; text-transform: uppercase; }
+.timing b { font-size: 22px; font-weight: 400; line-height: 1.15; }
+.t-lap { grid-area: lap; background: var(--red); font-family: var(--display); font-weight: 900; font-style: italic; font-size: 24px; line-height: 1; text-transform: uppercase; min-width: 64px; }
+.t-lap small { font-family: var(--mono); font-style: normal; font-weight: 400; font-size: 10px; letter-spacing: .14em; opacity: .85; }
+.t-lap.replay { background: var(--asphalt-3); }
+.t-sess { grid-area: sess; border-left: 1px solid var(--asphalt-3); }
+.t-sess b { font-family: var(--display); font-weight: 700; font-size: 17px; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-time { grid-area: time; border-left: 1px solid var(--asphalt-3); min-width: 132px; }
+.t-time b { font-size: 26px; }
+.t-time b.idle { color: var(--muted); }
+.t-moves { grid-area: moves; }
+.t-par { grid-area: par; }
+.t-moves, .t-par { border-left: 1px solid var(--asphalt-3); text-align: right; min-width: 70px; }
+.t-moves.over b { color: var(--yellow); }
+.sec-purple { color: var(--purple) !important; }
+.sec-green { color: var(--green) !important; }
+.sec-yellow { color: var(--yellow) !important; }
+@media (max-width: 560px) {
+  .timing { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "lap sess sess sess" "time time moves par"; }
+  .t-time { border-left: 0; border-top: 1px solid var(--asphalt-3); }
+  .t-moves, .t-par { border-top: 1px solid var(--asphalt-3); min-width: 60px; }
+  .timing > div { padding: 6px 10px; }
+}
+
+/* board */
+.board-zone { position: relative; display: flex; justify-content: center; min-width: 0; --stub: calc(var(--cell) * 0.5); }
+.board-zone[data-side="r"] { padding-right: calc(var(--stub) + var(--kerb)); }
+.board-zone[data-side="l"] { padding-left: calc(var(--stub) + var(--kerb)); }
+.board-zone[data-side="t"] { padding-top: calc(var(--stub) + var(--kerb)); }
+.board-zone[data-side="b"] { padding-bottom: calc(var(--stub) + var(--kerb)); }
+.frame {
+  position: relative; padding: var(--kerb); border-radius: 10px;
+  background: repeating-linear-gradient(-45deg, var(--red) 0 12px, var(--kerb-white) 12px 24px);
+  box-shadow: 0 24px 60px -20px #000, 0 0 0 1px #000;
+}
+.board {
+  --n: 6;
+  position: relative;
+  width: calc(var(--cell) * var(--n)); height: calc(var(--cell) * var(--n));
+  background:
+    linear-gradient(90deg, rgba(232,229,222,.14) 2px, transparent 2px) 0 0 / var(--cell) var(--cell),
+    linear-gradient(rgba(232,229,222,.14) 2px, transparent 2px) 0 0 / var(--cell) var(--cell),
+    radial-gradient(circle at 30% 20%, var(--asphalt-3), var(--asphalt-2) 70%);
+  border-radius: 4px; touch-action: none;
+}
+/* the race car's lane, painted toward the exit */
+.board::before { content: ""; position: absolute; pointer-events: none; box-sizing: border-box; }
+.board[data-axis="h"]::before {
+  left: 0; right: 0; top: calc(var(--cell) * var(--lane)); height: var(--cell);
+  background: repeating-linear-gradient(90deg, rgba(225,6,0,.15) 0 18px, transparent 18px 30px);
+  border-top: 2px solid rgba(225,6,0,.38); border-bottom: 2px solid rgba(225,6,0,.38);
+}
+.board[data-axis="v"]::before {
+  top: 0; bottom: 0; left: calc(var(--cell) * var(--lane)); width: var(--cell);
+  background: repeating-linear-gradient(180deg, rgba(225,6,0,.15) 0 18px, transparent 18px 30px);
+  border-left: 2px solid rgba(225,6,0,.38); border-right: 2px solid rgba(225,6,0,.38);
+}
+.exit {
+  position: absolute; background: var(--asphalt-2); box-sizing: border-box; pointer-events: none;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+}
+.exit[data-side="r"], .exit[data-side="l"] {
+  top: calc(var(--kerb) + var(--cell) * var(--lane)); height: var(--cell);
+  width: calc(var(--kerb) * 2 + var(--cell) * 0.5); flex-direction: column;
+  border-top: 2px solid var(--paint); border-bottom: 2px solid var(--paint);
+}
+.exit[data-side="r"] { left: calc(100% - var(--kerb)); }
+.exit[data-side="l"] { right: calc(100% - var(--kerb)); }
+.exit[data-side="t"], .exit[data-side="b"] {
+  left: calc(var(--kerb) + var(--cell) * var(--lane)); width: var(--cell);
+  height: calc(var(--kerb) * 2 + var(--cell) * 0.5);
+  border-left: 2px solid var(--paint); border-right: 2px solid var(--paint);
+}
+.exit[data-side="t"] { bottom: calc(100% - var(--kerb)); }
+.exit[data-side="b"] { top: calc(100% - var(--kerb)); }
+.exit .sign { font-family: var(--display); font-weight: 900; font-style: italic; font-size: 10px; letter-spacing: .1em; color: var(--paint); line-height: 1; white-space: nowrap; }
+.exit[data-side="r"] .sign, .exit[data-side="l"] .sign { writing-mode: vertical-rl; transform: rotate(180deg); }
+.exit .lamp { width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 8px var(--red); flex: none; }
+.exit.open .lamp { background: var(--green); box-shadow: 0 0 10px var(--green); }
+
+.veh {
+  position: absolute; left: 0; top: 0; cursor: grab; touch-action: none;
+  transition: transform .18s cubic-bezier(.3,.7,.3,1);
+  filter: drop-shadow(0 4px 4px rgba(0,0,0,.55));
+  border-radius: 10px;
+}
+.veh.hero { filter: drop-shadow(0 4px 4px rgba(0,0,0,.55)) drop-shadow(0 0 6px rgba(255,40,30,.85)); }
+.veh svg { display: block; width: 100%; height: 100%; }
+.veh.dragging { transition: none; cursor: grabbing; z-index: 5; filter: drop-shadow(0 10px 10px rgba(0,0,0,.6)); }
+.veh:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--yellow); }
+.veh.hint { animation: hintPulse 1s ease-in-out 3; }
+@keyframes hintPulse { 50% { box-shadow: 0 0 0 4px var(--green), 0 0 24px var(--green); } }
+.veh.leaving { transition: transform .9s cubic-bezier(.5,0,.8,.4), opacity .9s ease-in; opacity: 0; }
+.board.locked .veh { cursor: not-allowed; }
+.barrier {
+  position: absolute; border-radius: 6px; display: grid; place-items: center;
+  background: repeating-linear-gradient(-45deg, rgba(243,241,236,.07) 0 6px, transparent 6px 12px);
+  box-shadow: inset 0 0 0 2px rgba(243,241,236,.14);
+}
+.barrier svg { width: 90%; height: 90%; filter: drop-shadow(0 3px 2px rgba(0,0,0,.6)); }
+.ghost { position: absolute; border: 2px dashed var(--green); border-radius: 10px; pointer-events: none; box-sizing: border-box; background: rgba(31,209,122,.08); }
+
+.formation {
+  position: absolute; inset: 0; display: grid; place-items: center; z-index: 8;
+  background: rgba(10,11,13,.78); border-radius: 10px; backdrop-filter: blur(2px);
+  text-align: center; padding: 16px;
+}
+.formation b { display: block; font-family: var(--display); font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 22px; letter-spacing: .03em; }
+.formation span { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.formation .bar { width: 160px; height: 4px; margin: 12px auto 0; border-radius: 2px; background: var(--asphalt-3); overflow: hidden; }
+.formation .bar::after { content: ""; display: block; width: 40%; height: 100%; background: var(--red); animation: sweep 1.1s ease-in-out infinite; }
+@keyframes sweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+
+/* controls + race control */
+.controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.btn {
+  background: var(--asphalt-2); border: 1px solid var(--asphalt-3); border-radius: 6px;
+  padding: 9px 6px; font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 13px;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+}
+.btn kbd { font-family: var(--mono); font-size: 10px; color: var(--muted); font-weight: 400; letter-spacing: 0; }
+.btn:hover:not(:disabled) { border-color: var(--muted); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.new { background: #2a1214; border-color: #4a1a1c; }
+
+.rc { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0; border-radius: 6px; overflow: hidden; border: 1px solid var(--asphalt-3); background: var(--console); }
+.rc > span { background: var(--yellow); color: #111; font-family: var(--display); font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 11px; letter-spacing: .06em; padding: 6px 10px; display: flex; align-items: center; }
+.rc p { margin: 0; padding: 6px 12px; font-size: 14px; min-width: 0; }
+.rc.flash > span { animation: rcflash .5s ease-in-out 2; }
+@keyframes rcflash { 50% { background: var(--ink); } }
+
+.confirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 6px; background: #2a1214; border: 1px solid var(--red); }
+.confirm p { margin: 0; flex: 1 1 220px; font-size: 14px; }
+.confirm .row { display: flex; gap: 8px; }
+.mini { border-radius: 5px; border: 1px solid var(--asphalt-3); background: var(--asphalt-2); padding: 6px 12px; font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: .06em; }
+.mini.danger { background: var(--red); border-color: var(--red); }
+
+.help { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 68ch; }
+.help strong { color: var(--ink); font-weight: 600; }
+
+/* ---------- timing sheet ---------- */
+.sheet { background: var(--console); border: 1px solid var(--asphalt-3); border-radius: 10px; overflow: hidden; }
+.sheet-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 12px 14px 10px; border-bottom: 1px solid var(--asphalt-3); }
+.sheet h2 { margin: 0; font-family: var(--display); font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 17px; letter-spacing: .04em; }
+.sheet-h small { font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: right; }
+.sheet section { padding: 12px 14px; border-bottom: 1px solid var(--asphalt-3); }
+.sheet section:last-child { border-bottom: 0; }
+.sheet h3 { margin: 0 0 8px; font-family: var(--mono); font-weight: 400; font-size: 11px; color: var(--muted); letter-spacing: .14em; text-transform: uppercase; display: flex; justify-content: space-between; gap: 8px; }
+.sheet h3 em { font-style: normal; color: var(--ink); letter-spacing: .06em; }
+.tiles { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--asphalt-3); border-radius: 6px; overflow: hidden; }
+.tiles div { background: #111317; padding: 7px 10px; min-width: 0; }
+.tiles dt { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+.tiles dd { margin: 0; font-family: var(--mono); font-size: 19px; line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tiles dd small { font-size: 11px; color: var(--muted); }
+.tiles .wide { grid-column: 1 / -1; }
+.recent { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; background: var(--asphalt-3); border-radius: 6px; overflow: hidden; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.recent li { display: grid; grid-template-columns: 64px 40px minmax(0, 1fr) auto; gap: 8px; align-items: center; background: #111317; padding: 6px 10px; font-size: 13px; }
+.recent .rk { color: var(--muted); font-size: 11px; }
+.recent .pos { font-family: var(--display); font-weight: 900; font-style: italic; }
+.recent .tm { text-align: right; }
+.recent .mv { color: var(--muted); font-size: 11px; }
+.recent li.dnf .pos, .recent li.dnf .tm { color: var(--muted); }
+.empty { margin: 0; color: var(--muted); font-size: 13px; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+.clear { background: none; border: 0; padding: 0; font-family: var(--mono); font-size: 11px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.clear.armed { color: var(--red); }
+
+details.paddock-box { background: var(--console); border: 1px solid var(--asphalt-3); border-radius: 10px; padding: 0 14px; margin-top: 14px; }
+details.paddock-box summary { cursor: pointer; padding: 11px 0; font-family: var(--display); font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 15px; letter-spacing: .04em; list-style: none; display: flex; justify-content: space-between; }
+details.paddock-box summary::after { content: "+"; font-family: var(--mono); font-style: normal; color: var(--muted); }
+details.paddock-box[open] summary::after { content: "−"; }
+details.paddock-box summary::-webkit-details-marker { display: none; }
+.paddock { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 7px; }
+.paddock h4 { margin: 6px 0 0; font-family: var(--mono); font-weight: 400; font-size: 10px; color: var(--muted); letter-spacing: .14em; text-transform: uppercase; }
+.paddock li { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 10px; align-items: center; font-size: 13px; }
+.paddock li .art { width: 70px; display: flex; justify-content: flex-start; }
+.paddock li .art svg { height: 22px; width: auto; display: block; }
+.paddock li b { font-weight: 600; display: block; line-height: 1.2; }
+.paddock li span { color: var(--muted); font-size: 12px; line-height: 1.25; display: block; }
+
+/* ---------- finish card ---------- */
+.overlay {
+  position: fixed; inset: 0; background: rgba(8,9,11,.74); display: grid; place-items: center; z-index: 20;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px; backdrop-filter: blur(3px); overflow-y: auto;
+}
+.card { width: min(440px, 100%); background: var(--asphalt-2); border-radius: 12px; overflow: hidden; border: 1px solid var(--asphalt-3); box-shadow: 0 30px 80px -20px #000; }
+.flag { height: 48px; background: repeating-conic-gradient(var(--ink) 0 25%, var(--console) 0 50%) 0 0 / 24px 24px; animation: wave 1.6s linear infinite; }
+@keyframes wave { to { background-position: 48px 0; } }
+.card .body { padding: 18px 22px 22px; display: flex; flex-direction: column; gap: 14px; }
+.card .eyebrow { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .14em; text-transform: uppercase; }
+.card h3 { margin: 0; font-family: var(--display); font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 34px; line-height: 1; }
+.card h3 span { color: var(--muted); font-size: 22px; }
+.bigtime { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: var(--console); border-radius: 8px; padding: 10px 14px; }
+.bigtime b { font-family: var(--mono); font-weight: 400; font-size: 34px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.bigtime small { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.sectors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.sectors div { display: flex; flex-direction: column; gap: 4px; }
+.sectors i { height: 6px; border-radius: 3px; background: var(--asphalt-3); display: block; }
+.sectors i.purple { background: var(--purple); } .sectors i.green { background: var(--green); } .sectors i.yellow { background: var(--yellow); }
+.sectors span { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+.result { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--asphalt-3); border-radius: 6px; overflow: hidden; font-family: var(--mono); }
+.result div { background: var(--console); padding: 7px 10px; }
+.result label { display: block; font-size: 10px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
+.result b { font-size: 20px; font-weight: 400; }
+.card p { margin: 0; color: var(--muted); font-size: 14px; }
+.card .row { display: flex; gap: 8px; }
+.primary {
+  flex: 1; background: var(--red); border: 0; border-radius: 6px; padding: 12px; font-family: var(--display);
+  font-weight: 900; font-style: italic; text-transform: uppercase; letter-spacing: .06em; font-size: 15px;
+}
+.primary.ghosty { background: transparent; border: 1px solid var(--asphalt-3); flex: 0 0 auto; padding-inline: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .veh, .veh.leaving { transition: none; }
+  .flag, .formation .bar::after, .rc.flash > span { animation: none; }
+  .veh.hint { animation: none; box-shadow: 0 0 0 4px var(--green); }
+}
+</style>
+
+<div class="shell">
+  <header class="top">
+    <div class="brand">
+      <h1>Pit Lane <span>Escape</span></h1>
+      <div class="tag">Clear the lane. Make the restart.</div>
+    </div>
+    <div class="lights" id="lights" aria-hidden="true">
+      <div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="track">
+      <div class="pickers">
+        <div>
+          <span class="picker-label" id="lblSession">Session · difficulty</span>
+          <div class="seg sessions" id="segSession" role="group" aria-labelledby="lblSession"></div>
+        </div>
+        <div>
+          <span class="picker-label" id="lblGrid">Grid</span>
+          <div class="seg grids" id="segGrid" role="group" aria-labelledby="lblGrid"></div>
+        </div>
+      </div>
+
+      <div class="timing">
+        <div class="t-lap" id="tLapBox"><small id="tLapLbl">Lap</small><span id="tLap">1</span></div>
+        <div class="t-sess"><label id="tGrid">6×6 grid</label><b id="tSession">Practice</b></div>
+        <div class="t-time"><label>Lap time</label><b id="tTime" class="idle">0:00.000</b></div>
+        <div class="t-moves" id="tMovesBox"><label>Moves</label><b id="tMoves">0</b></div>
+        <div class="t-par"><label>Par</label><b id="tPar">–</b></div>
+      </div>
+
+      <div class="board-zone" id="zone" data-side="r">
+        <div class="frame" id="frame">
+          <div class="board" id="board" data-axis="h" role="application" aria-label="Pit lane grid"></div>
+          <div class="exit" id="exit" data-side="r"><span class="lamp"></span><span class="sign">PIT EXIT</span></div>
+          <div class="formation" id="formation" hidden><div><b>Formation lap</b><span id="formationTxt">Building the grid…</span><div class="bar"></div></div></div>
+        </div>
+      </div>
+
+      <div class="confirm" id="confirm" hidden role="alertdialog" aria-labelledby="confirmTxt">
+        <p id="confirmTxt">Retire this lap?</p>
+        <div class="row"><button class="mini" id="cNo" type="button">Keep racing</button><button class="mini danger" id="cYes" type="button">Retire</button></div>
+      </div>
+
+      <div class="controls">
+        <button class="btn" id="bUndo" type="button">Undo<kbd>Z</kbd></button>
+        <button class="btn" id="bReset" type="button">Restart<kbd>R</kbd></button>
+        <button class="btn" id="bHint" type="button">Pit wall<kbd>H · hint</kbd></button>
+        <button class="btn new" id="bNew" type="button">New lap<kbd>N</kbd></button>
+      </div>
+
+      <div class="rc" id="rc" aria-live="polite"><span>Race control</span><p id="rcMsg">Lights out and away we go.</p></div>
+
+      <p class="help"><strong>Get your red race car (the glowing one, #1) out through the pit exit.</strong> The exit moves every lap. Drag any vehicle along its own lane; nothing turns, and tyre barriers can't be crossed. Keyboard: Tab to a vehicle, then use the arrow keys. The clock starts when the lights go out and pauses if you leave the tab. Par is the fewest moves possible; finishing on par is P1.</p>
+    </section>
+
+    <aside>
+      <div class="sheet" id="sheet">
+        <div class="sheet-h"><h2>Timing sheet</h2><small id="syncNote">Saved in this browser</small></div>
+        <section>
+          <h3>This session <em id="scopeName">Practice · 6×6</em></h3>
+          <dl class="tiles" id="tilesSession"></dl>
+        </section>
+        <section>
+          <h3>Championship <em>all sessions</em></h3>
+          <dl class="tiles" id="tilesChamp"></dl>
+        </section>
+        <section>
+          <h3>Recent laps <button class="clear" id="bClear" type="button">Clear timing sheet</button></h3>
+          <ol class="recent" id="recent"></ol>
+          <div class="legend"><span><i style="background:var(--purple)"></i>Purple: new fastest lap</span><span><i style="background:var(--green)"></i>Green: beat your average</span><span><i style="background:var(--yellow)"></i>Yellow: slower</span></div>
+        </section>
+      </div>
+
+      <details class="paddock-box">
+        <summary>The paddock</summary>
+        <ul class="paddock" id="paddock"></ul>
+      </details>
+    </aside>
+  </main>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="fTitle">
+    <div class="flag"></div>
+    <div class="body">
+      <div class="eyebrow" id="fEyebrow">Chequered flag</div>
+      <h3 id="fTitle">P1</h3>
+      <div class="bigtime"><b id="fTime">0:00.000</b><small id="fTimeNote"></small></div>
+      <div class="sectors" id="fSectors">
+        <div><i id="s1"></i><span>S1 · Racing line</span></div>
+        <div><i id="s2"></i><span>S2 · Pace</span></div>
+        <div><i id="s3"></i><span>S3 · Strategy</span></div>
+      </div>
+      <div class="result">
+        <div><label>Moves</label><b id="fMoves">0</b></div>
+        <div><label>Par</label><b id="fPar">0</b></div>
+        <div><label>Finish</label><b id="fPos">P1</b></div>
+        <div><label>Points</label><b id="fPts">0</b></div>
+      </div>
+      <p id="fMsg"></p>
+      <div class="row">
+        <button class="primary ghosty" id="fRetry" type="button">Replay lap</button>
+        <button class="primary" id="fNext" type="button">Next lap</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   Puzzle engine. Runs in a Web Worker (generation) and on the page (hints).
+   A board state is one number: each vehicle's lane position is a base-8 digit,
+   the race car's is the lowest digit. The exit can sit on any side, in any lane.
+   ===================================================================== */
+function pitLib(scope) {
+  'use strict';
+  const MAXV = 17;
+  let LIMIT = 40000;
+  const BARRIERS = { 5: [0, 1], 6: [0, 1], 7: [1, 2] };
+  const VCOUNT = { 5: [6, 9], 6: [10, 13], 7: [14, 17] };
+  const TRUCKS = { 5: 0.22, 6: 0.3, 7: 0.36 };
+  let TRUCK = 0.3;
+
+  function rng(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const ri = (r, a, b) => a + Math.floor(r() * (b - a + 1));
+
+  function ctxFor(n, veh, blocks, goal) {
+    const V = veh.length, pow = new Array(V);
+    pow[0] = 1; for (let i = 1; i < V; i++) pow[i] = pow[i - 1] * 8;
+    const base = new Int8Array(n * n).fill(-1);
+    for (const c of blocks) base[c] = -2;
+    return { n, veh, V, pow, base, grid: new Int8Array(n * n), pos: new Int8Array(V), goal };
+  }
+  function encode(ctx, pos) { let k = 0; for (let i = ctx.V - 1; i >= 0; i--) k = k * 8 + pos[i]; return k; }
+  function decodeFill(ctx, key) {
+    const { n, veh, V, pos, grid, base } = ctx;
+    grid.set(base);
+    let k = key;
+    for (let i = 0; i < V; i++) {
+      const p = k % 8; pos[i] = p; k = (k - p) / 8;
+      const v = veh[i];
+      if (v.h) { const o = v.fx * n + p; for (let j = 0; j < v.len; j++) grid[o + j] = i; }
+      else { for (let j = 0; j < v.len; j++) grid[(p + j) * n + v.fx] = i; }
+    }
+  }
+  function neighbors(ctx, key, cb) {
+    decodeFill(ctx, key);
+    const { n, veh, V, pos, grid, pow } = ctx;
+    for (let i = 0; i < V; i++) {
+      const v = veh[i], p = pos[i], w = pow[i], L = v.len;
+      if (v.h) {
+        const row = v.fx * n;
+        for (let q = p - 1; q >= 0 && grid[row + q] === -1; q--) cb(key + (q - p) * w, i, q);
+        for (let q = p + L; q < n && grid[row + q] === -1; q++) cb(key + (q - L + 1 - p) * w, i, q - L + 1);
+      } else {
+        const c = v.fx;
+        for (let q = p - 1; q >= 0 && grid[q * n + c] === -1; q--) cb(key + (q - p) * w, i, q);
+        for (let q = p + L; q < n && grid[q * n + c] === -1; q++) cb(key + (q - L + 1 - p) * w, i, q - L + 1);
+      }
+    }
+  }
+
+  /* Whole reachable component, then distance-to-exit for every state in it. */
+  function analyze(ctx, start) {
+    const index = new Map([[start, 0]]), keys = [start];
+    const add = (nk) => { if (!index.has(nk)) { index.set(nk, keys.length); keys.push(nk); } };
+    for (let qi = 0; qi < keys.length; qi++) { neighbors(ctx, keys[qi], add); if (keys.length > LIMIT) return null; }
+    // vehicles that hold the same spot in every reachable state can never move
+    const V = ctx.V, first = new Int8Array(V), moves = new Uint8Array(V);
+    for (let i = 0, k = start; i < V; i++) { const p = k % 8; first[i] = p; k = (k - p) / 8; }
+    let still = V;
+    for (let j = 1; j < keys.length && still; j++) {
+      for (let i = 0, k = keys[j]; i < V; i++) { const p = k % 8; k = (k - p) / 8; if (!moves[i] && p !== first[i]) { moves[i] = 1; still--; } }
+    }
+    const stuck = []; for (let i = 1; i < V; i++) if (!moves[i]) stuck.push(i);
+    if (stuck.length) return { stuck };
+    const dist = new Int16Array(keys.length).fill(-1), q = new Int32Array(keys.length);
+    let qh = 0, qt = 0, cur = 0;
+    for (let i = 0; i < keys.length; i++) if (keys[i] % 8 === ctx.goal) { dist[i] = 0; q[qt++] = i; }
+    if (!qt) return null;
+    const relax = (nk) => { const j = index.get(nk); if (dist[j] < 0) { dist[j] = dist[cur] + 1; q[qt++] = j; } };
+    while (qh < qt) { cur = q[qh++]; neighbors(ctx, keys[cur], relax); }
+    return { keys, dist, max: dist[q[qt - 1]], stuck };
+  }
+  function dropStuck(b, stuck) {
+    const c = clone(b);
+    for (let j = stuck.length - 1; j >= 0; j--) { c.veh.splice(stuck[j], 1); c.pos.splice(stuck[j], 1); }
+    return c;
+  }
+
+  function cellsOf(n, v, p) { const out = []; for (let j = 0; j < v.len; j++) out.push(v.h ? v.fx * n + p + j : (p + j) * n + v.fx); return out; }
+  function isFree(o, n, v, p) { return cellsOf(n, v, p).every(c => !o[c]); }
+  function mark(o, n, v, p, val) { for (const c of cellsOf(n, v, p)) o[c] = val; }
+  function occOf(b) { const o = new Int8Array(b.n * b.n); for (const c of b.blocks) o[c] = 1; b.veh.forEach((v, i) => mark(o, b.n, v, b.pos[i], 1)); return o; }
+  function inHeroLane(b, idx) { const h = b.veh[0]; return h.h ? Math.floor(idx / b.n) === h.fx : idx % b.n === h.fx; }
+  function heroRange(b) { return b.goal === 0 ? [1, b.n - 2] : [0, b.n - 3]; }
+  function tryAdd(b, o, r) {
+    const n = b.n, hero = b.veh[0];
+    for (let t = 0; t < 40; t++) {
+      const len = r() < TRUCK ? 3 : 2, h = r() < 0.5, fx = ri(r, 0, n - 1);
+      if (h === hero.h && fx === hero.fx) continue;
+      const v = { fx, len, h }, p = ri(r, 0, n - len);
+      if (isFree(o, n, v, p)) { b.veh.push(v); b.pos.push(p); mark(o, n, v, p, 1); return true; }
+    }
+    return false;
+  }
+  function randomBoard(n, r) {
+    const side = 'rltb'[ri(r, 0, 3)], lane = ri(r, 0, n - 1);
+    const h = side === 'r' || side === 'l', goal = side === 'r' || side === 'b' ? n - 2 : 0;
+    const b = { n, side, lane, goal, veh: [{ fx: lane, len: 2, h }], pos: [0], blocks: [] };
+    const [a, z] = heroRange(b); b.pos[0] = ri(r, a, z);
+    const o = new Int8Array(n * n); mark(o, n, b.veh[0], b.pos[0], 1);
+    const nb = ri(r, BARRIERS[n][0], BARRIERS[n][1]);
+    for (let t = 0; b.blocks.length < nb && t < 60; t++) {
+      const idx = ri(r, 0, n * n - 1);
+      if (o[idx] || inHeroLane(b, idx)) continue;
+      o[idx] = 1; b.blocks.push(idx);
+    }
+    const target = Math.min(MAXV, ri(r, VCOUNT[n][0], VCOUNT[n][1]));
+    for (let t = 0; b.veh.length < target && t < target * 6; t++) tryAdd(b, o, r);
+    return b;
+  }
+  function clone(b) { return { n: b.n, side: b.side, lane: b.lane, goal: b.goal, veh: b.veh.map(v => ({ ...v })), pos: b.pos.slice(), blocks: b.blocks.slice() }; }
+  function mutate(src, r) {
+    const b = clone(src), n = b.n, op = r();
+    if (op < 0.3 && b.veh.length > 4) {
+      const i = ri(r, 1, b.veh.length - 1); b.veh.splice(i, 1); b.pos.splice(i, 1); tryAdd(b, occOf(b), r);
+    } else if (op < 0.45 && b.veh.length > 4) {
+      const i = ri(r, 1, b.veh.length - 1); b.veh.splice(i, 1); b.pos.splice(i, 1);
+    } else if (op < 0.65 && b.veh.length < MAXV) {
+      tryAdd(b, occOf(b), r);
+    } else if (op < 0.75 && b.blocks.length) {
+      const k = ri(r, 0, b.blocks.length - 1), o = occOf(b); o[b.blocks[k]] = 0;
+      for (let t = 0; t < 30; t++) { const idx = ri(r, 0, n * n - 1); if (!o[idx] && !inHeroLane(b, idx)) { b.blocks[k] = idx; break; } }
+    } else {
+      const i = ri(r, 0, b.veh.length - 1), o = occOf(b), v = b.veh[i];
+      mark(o, n, v, b.pos[i], 0);
+      const [a, z] = i === 0 ? heroRange(b) : [0, n - v.len];
+      for (let t = 0; t < 10; t++) { const p = ri(r, a, z); if (isFree(o, n, v, p)) { b.pos[i] = p; break; } }
+    }
+    return b;
+  }
+  function finalize(b, ctx, a, lo, hi, r, evals, t0) {
+    const top = Math.min(hi, a.max), low = Math.min(lo, a.max);
+    const d = ri(r, low, top), picks = [];
+    for (let i = 0; i < a.dist.length; i++) if (a.dist[i] === d) picks.push(i);
+    decodeFill(ctx, a.keys[picks[Math.floor(r() * picks.length)]]);
+    const n = b.n;
+    const vehicles = b.veh.map((v, i) => { const p = ctx.pos[i]; return v.h ? { r: v.fx, c: p, len: v.len, dir: 'h' } : { r: p, c: v.fx, len: v.len, dir: 'v' }; });
+    return {
+      n, par: d, exit: { side: b.side, lane: b.lane },
+      blocks: b.blocks.map(c => ({ r: Math.floor(c / n), c: c % n })),
+      vehicles, evals, ms: Date.now() - t0,
+      rev: 2, // every car can move; older saved laps may hold one that can't
+    };
+  }
+  /* Random boards plus hill-climbing on "deepest state in the component". */
+  function generate(n, lo, hi, seed, budget, tune) {
+    const r = rng(seed), t0 = Date.now();
+    TRUCK = TRUCKS[n] || 0.3;
+    if (tune) { if (tune.vc) VCOUNT[n] = tune.vc; if (tune.tr) TRUCK = tune.tr; if (tune.br) BARRIERS[n] = tune.br; if (tune.limit) LIMIT = tune.limit; }
+    let best = null, bestA = null, top = null, stale = 0, evals = 0;
+    for (;;) {
+      let b = (best && r() < 0.7) ? mutate(best, r) : randomBoard(n, r);
+      let ctx = ctxFor(n, b.veh, b.blocks, b.goal), a = analyze(ctx, encode(ctx, b.pos));
+      evals++;
+      // a car boxed in for good is just a wall: take it off the grid. The rest keep every move they had.
+      if (a && a.stuck.length && !a.keys) {
+        b = dropStuck(b, a.stuck);
+        ctx = ctxFor(n, b.veh, b.blocks, b.goal); a = analyze(ctx, encode(ctx, b.pos));
+        if (a && !a.keys) a = null;
+      }
+      if (a) {
+        if (a.max >= lo) return finalize(b, ctx, a, lo, hi, r, evals, t0);
+        if (!bestA || a.max >= bestA.max) { if (!bestA || a.max > bestA.max) stale = 0; best = b; bestA = a; }
+        if (!top || a.max > top.a.max) top = { b, a, ctx };
+      }
+      if (++stale > 350) { best = null; bestA = null; stale = 0; }
+      if (Date.now() - t0 > budget && top) return finalize(top.b, top.ctx, top.a, top.a.max, top.a.max, r, evals, t0);
+    }
+  }
+  /* Shortest solution from a position on screen: first move + moves remaining. */
+  function solveState(n, vehicles, blocks, goal) {
+    const veh = vehicles.map(v => ({ fx: v.dir === 'h' ? v.r : v.c, len: v.len, h: v.dir === 'h' }));
+    const pos = vehicles.map(v => v.dir === 'h' ? v.c : v.r);
+    const ctx = ctxFor(n, veh, blocks.map(c => c.r * n + c.c), goal);
+    if (pos[0] === goal) return { len: 0 };
+    const start = encode(ctx, pos);
+    const seen = new Set([start]), keys = [start], depth = [0], fi = [-1], fp = [-1];
+    for (let qi = 0; qi < keys.length; qi++) {
+      const k = keys[qi], d = depth[qi], i0 = fi[qi], p0 = fp[qi];
+      let found = null;
+      neighbors(ctx, k, (nk, i, q) => {
+        if (found || seen.has(nk)) return;
+        seen.add(nk);
+        const mi = i0 < 0 ? i : i0, mp = i0 < 0 ? q : p0;
+        if (i === 0 && q === goal) { found = { len: d + 1, i: mi, p: mp }; return; }
+        keys.push(nk); depth.push(d + 1); fi.push(mi); fp.push(mp);
+      });
+      if (found) return found;
+      if (keys.length > 400000) return null;
+    }
+    return null;
+  }
+
+  if (scope && typeof scope.postMessage === 'function') {
+    scope.onmessage = (e) => {
+      const m = e.data;
+      if (m && m.type === 'gen') scope.postMessage({ type: 'gen', id: m.id, puzzle: generate(m.n, m.lo, m.hi, m.seed, m.budget, m.tune) });
+    };
+  }
+  return { generate, solveState };
+}
+
+/* =====================================================================
+   Vehicle art, drawn facing right at 100 units per cell.
+   ===================================================================== */
+const C = { red: '#e10600', dark: '#0e0f12', tyre: '#121316', rim: '#3a3e46', yellow: '#ffd400', white: '#f3f1ec' };
+const SHINE = `<defs><linearGradient id="shine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`;
+
+function raceCar(body, shade, stripe, helmet, band, num) {
+  return `
+    <rect x="6" y="12" width="18" height="76" rx="3" fill="${C.dark}"/><rect x="6" y="12" width="18" height="8" fill="${body}"/><rect x="6" y="80" width="18" height="8" fill="${body}"/>
+    <rect x="28" y="4" width="36" height="24" rx="7" fill="${C.tyre}"/><rect x="28" y="72" width="36" height="24" rx="7" fill="${C.tyre}"/>
+    <rect x="30" y="13" width="32" height="3" fill="${band}"/><rect x="30" y="84" width="32" height="3" fill="${band}"/>
+    <path d="M22 38 L58 28 L118 28 L140 40 L176 44 L176 56 L140 60 L118 72 L58 72 L22 62 Z" fill="${body}"/>
+    <path d="M40 44 L120 40 L150 46 L150 54 L120 60 L40 56 Z" fill="${shade}"/>
+    <path d="M58 30 L118 30 L118 36 L58 36 Z M58 64 L118 64 L118 70 L58 70 Z" fill="${stripe}" opacity=".92"/>
+    <ellipse cx="112" cy="50" rx="17" ry="10" fill="${C.dark}"/>
+    <circle cx="108" cy="50" r="7" fill="${helmet}"/><rect x="104" y="47" width="6" height="6" rx="1" fill="${C.dark}" opacity=".7"/>
+    <path d="M96 40 Q128 40 128 50 Q128 60 96 60" fill="none" stroke="#2b2e35" stroke-width="4"/>
+    <rect x="136" y="6" width="32" height="22" rx="7" fill="${C.tyre}"/><rect x="136" y="72" width="32" height="22" rx="7" fill="${C.tyre}"/>
+    <rect x="138" y="15" width="28" height="3" fill="${band}"/><rect x="138" y="82" width="28" height="3" fill="${band}"/>
+    <path d="M150 45 L188 47 L188 53 L150 55 Z" fill="${body}"/>
+    <rect x="178" y="14" width="16" height="72" rx="3" fill="${C.dark}"/><rect x="178" y="14" width="16" height="10" fill="${body}"/><rect x="178" y="76" width="16" height="10" fill="${body}"/>
+    <text x="${num.length > 1 ? 66 : 72}" y="54" font-family="Titillium Web, sans-serif" font-weight="900" font-style="italic" font-size="13" fill="${stripe}">${num}</text>`;
+}
+function wheels2() {
+  return `<rect x="30" y="4" width="32" height="12" rx="4" fill="${C.tyre}"/><rect x="30" y="84" width="32" height="12" rx="4" fill="${C.tyre}"/>
+          <rect x="136" y="4" width="32" height="12" rx="4" fill="${C.tyre}"/><rect x="136" y="84" width="32" height="12" rx="4" fill="${C.tyre}"/>`;
+}
+function sedan(body, trim, roof, bar) {
+  return `${wheels2()}
+  <rect x="10" y="12" width="180" height="76" rx="24" fill="${body}"/>
+  <rect x="10" y="44" width="180" height="12" fill="${trim}" opacity=".9"/>
+  <path d="M126 20 Q150 22 156 32 L156 68 Q150 78 126 80 Z" fill="#1b2a38"/>
+  <path d="M44 24 L60 22 L60 78 L44 76 Q36 50 44 24 Z" fill="#1b2a38"/>
+  <rect x="62" y="20" width="62" height="60" rx="8" fill="${roof}"/>
+  ${bar}
+  <rect x="122" y="6" width="10" height="8" rx="2" fill="${body}"/><rect x="122" y="86" width="10" height="8" rx="2" fill="${body}"/>
+  <rect x="182" y="22" width="6" height="14" rx="2" fill="#fff6c9"/><rect x="182" y="64" width="6" height="14" rx="2" fill="#fff6c9"/>
+  <rect x="12" y="22" width="5" height="14" rx="2" fill="#ff3b30"/><rect x="12" y="64" width="5" height="14" rx="2" fill="#ff3b30"/>`;
+}
+function estate() {
+  let checks = '';
+  for (let x = 14, k = 0; x < 184; x += 17, k++) {
+    const col = k % 2 ? '#1f9a4a' : '#e6ff00';
+    checks += `<rect x="${x}" y="12" width="17" height="9" fill="${col}"/><rect x="${x}" y="79" width="17" height="9" fill="${col}"/>`;
+  }
+  return `${wheels2()}
+  <rect x="8" y="12" width="184" height="76" rx="13" fill="${C.white}"/>
+  ${checks}
+  <rect x="8" y="12" width="184" height="76" rx="13" fill="none" stroke="#c9c6bf" stroke-width="2"/>
+  <path d="M150 20 Q166 22 170 34 L170 66 Q166 78 150 80 Z" fill="#1b2a38"/>
+  <rect x="14" y="26" width="8" height="48" rx="3" fill="#1b2a38"/>
+  <rect x="26" y="22" width="120" height="56" rx="6" fill="#e2dfd8"/>
+  <path d="M30 27 H142 M30 73 H142" stroke="#5a5e66" stroke-width="3" stroke-linecap="round"/>
+  <rect x="126" y="24" width="14" height="52" rx="3" fill="#0e0f12"/>
+  <rect x="128" y="26" width="10" height="22" rx="2" fill="#2f7bff"/><rect x="128" y="52" width="10" height="22" rx="2" fill="#2f7bff"/>
+  <path d="M68 42 h8 v-8 h8 v8 h8 v8 h-8 v8 h-8 v-8 h-8 Z" fill="#e10600"/>
+  <rect x="184" y="22" width="6" height="12" rx="2" fill="#fff6c9"/><rect x="184" y="66" width="6" height="12" rx="2" fill="#fff6c9"/>
+  <rect x="148" y="5" width="9" height="8" rx="2" fill="${C.white}"/><rect x="148" y="87" width="9" height="8" rx="2" fill="${C.white}"/>`;
+}
+function truckWheels() {
+  return `<rect x="40" y="4" width="34" height="12" rx="4" fill="${C.tyre}"/><rect x="40" y="84" width="34" height="12" rx="4" fill="${C.tyre}"/>
+    <rect x="160" y="4" width="34" height="12" rx="4" fill="${C.tyre}"/><rect x="160" y="84" width="34" height="12" rx="4" fill="${C.tyre}"/>
+    <rect x="244" y="4" width="30" height="12" rx="4" fill="${C.tyre}"/><rect x="244" y="84" width="30" height="12" rx="4" fill="${C.tyre}"/>`;
+}
+function cab(color, extra) {
+  return `<rect x="228" y="12" width="66" height="76" rx="14" fill="${color}"/>
+    <path d="M270 18 Q290 22 290 34 L290 66 Q290 78 270 82 Z" fill="#1b2a38"/>${extra || ''}`;
+}
+
+const ART = {
+  race: { len: 2, group: 'you', name: 'Your race car #1', call: 'race car', note: 'Red, glowing, and late for the restart. Get it to the pit exit.',
+    draw: () => raceCar(C.red, '#a80500', '#ffffff', C.yellow, C.yellow, '1') },
+  rival7: { len: 2, group: 'rival', name: 'Rival #7 · Cobalt', call: '#7 rival car', note: 'On hards and planning a long stint.',
+    draw: () => raceCar('#2456d8', '#173b9e', C.white, C.white, C.white, '7') },
+  rival22: { len: 2, group: 'rival', name: 'Rival #22 · Lime', call: '#22 rival car', note: 'On softs and in a hurry.',
+    draw: () => raceCar('#8fd61f', '#5f9612', '#0e0f12', '#0e0f12', C.red, '22') },
+  rival58: { len: 2, group: 'rival', name: 'Rival #58 · Teal', call: '#58 rival car', note: 'Mediums. Waiting for the undercut.',
+    draw: () => raceCar('#13a99e', '#0b736b', '#ff8a2a', '#ff8a2a', C.yellow, '58') },
+  rival91: { len: 2, group: 'rival', name: 'Rival #91 · Violet', call: '#91 rival car', note: 'Rookie. Still looking for the pit box.',
+    draw: () => raceCar('#7b3fe4', '#5527a8', '#d8dbe0', C.white, C.red, '91') },
+  safety: { len: 2, group: 'support', name: 'Safety car', call: 'safety car', note: 'Leads the field under caution.', draw: () => sedan('#c4c8cf', '#0e0f12', '#9aa0aa',
+    `<rect x="84" y="22" width="14" height="56" rx="3" fill="#0e0f12"/><rect x="86" y="24" width="10" height="18" rx="2" fill="#ffb000"/><rect x="86" y="58" width="10" height="18" rx="2" fill="#ffb000"/><rect x="86" y="44" width="10" height="12" fill="#2a8f4b"/>`) },
+  medical: { len: 2, group: 'support', name: 'Medical car', call: 'medical car', note: 'Estate with the doctor on board. Follows the start.', draw: estate },
+  marshal: { len: 2, group: 'support', name: 'Course car', call: 'course car', note: 'Marshals checking the track.', draw: () => sedan('#ff7a1a', '#0e0f12', '#d9600c',
+    `<rect x="84" y="22" width="14" height="56" rx="3" fill="#0e0f12"/><rect x="86" y="24" width="10" height="52" rx="2" fill="${C.yellow}"/>`) },
+  transporter: { len: 3, group: 'support', name: 'Team transporter', call: 'transporter', note: 'Garage, spares and a lot of carbon.', draw: () => `
+    <rect x="40" y="4" width="34" height="12" rx="4" fill="${C.tyre}"/><rect x="40" y="84" width="34" height="12" rx="4" fill="${C.tyre}"/>
+    <rect x="80" y="4" width="34" height="12" rx="4" fill="${C.tyre}"/><rect x="80" y="84" width="34" height="12" rx="4" fill="${C.tyre}"/>
+    <rect x="244" y="4" width="30" height="12" rx="4" fill="${C.tyre}"/><rect x="244" y="84" width="30" height="12" rx="4" fill="${C.tyre}"/>
+    <rect x="6" y="12" width="218" height="76" rx="6" fill="#16181d"/>
+    <path d="M90 12 L130 12 L80 88 L40 88 Z" fill="${C.red}"/><path d="M136 12 L148 12 L98 88 L86 88 Z" fill="${C.white}"/>
+    <rect x="6" y="12" width="218" height="76" rx="6" fill="none" stroke="#2c3038" stroke-width="2"/>
+    <rect x="150" y="40" width="64" height="20" rx="2" fill="#22252c"/>
+    ${cab(C.red, '<rect x="232" y="20" width="32" height="60" rx="6" fill="#b00500"/>')}` },
+  recovery: { len: 3, group: 'support', name: 'Recovery truck', call: 'recovery truck', note: 'Lifts stranded cars off the circuit.', draw: () => `
+    ${truckWheels()}
+    <rect x="6" y="14" width="218" height="72" rx="4" fill="#4a4f58"/>
+    <path d="M10 18 H220 M10 34 H220 M10 50 H220 M10 66 H220 M10 82 H220" stroke="#3a3e46" stroke-width="3"/>
+    <rect x="166" y="34" width="34" height="32" rx="4" fill="${C.yellow}"/>
+    <path d="M183 50 L40 30" stroke="${C.yellow}" stroke-width="12" stroke-linecap="round"/>
+    <path d="M183 50 L40 30" stroke="#0e0f12" stroke-width="2" stroke-dasharray="6 8"/>
+    <circle cx="36" cy="30" r="7" fill="#0e0f12"/><path d="M36 37 v10" stroke="#0e0f12" stroke-width="3"/>
+    ${cab(C.yellow, '<rect x="240" y="44" width="20" height="12" rx="2" fill="#ff7a1a"/>')}` },
+  tyres: { len: 3, group: 'support', name: 'Tyre truck', call: 'tyre truck', note: 'Softs, mediums and hards for the stop.', draw: () => {
+    const cols = [C.red, C.yellow, C.white];
+    let t = '';
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 2; j++) {
+      const cx = 30 + i * 32, cy = 32 + j * 36, col = cols[(i + j) % 3];
+      t += `<circle cx="${cx}" cy="${cy}" r="14" fill="${C.tyre}"/><circle cx="${cx}" cy="${cy}" r="10" fill="none" stroke="${col}" stroke-width="2.5"/><circle cx="${cx}" cy="${cy}" r="5" fill="${C.rim}"/>`;
+    }
+    return `${truckWheels()}
+    <rect x="6" y="12" width="218" height="76" rx="4" fill="#2a2e35" stroke="#4a4f58" stroke-width="3"/>${t}
+    ${cab(C.white, '<rect x="234" y="44" width="30" height="12" fill="#e10600"/>')}`; } },
+  fuel: { len: 3, group: 'support', name: 'Fuel bowser', call: 'fuel bowser', note: 'Sustainable fuel for the whole team.', draw: () => `
+    ${truckWheels()}
+    <rect x="8" y="14" width="214" height="72" rx="36" fill="#1f8fa0"/>
+    <rect x="8" y="14" width="214" height="72" rx="36" fill="url(#shine)" opacity=".5"/>
+    <path d="M60 16 V84 M120 16 V84 M180 16 V84" stroke="#166b78" stroke-width="4"/>
+    <circle cx="90" cy="50" r="8" fill="#166b78"/><circle cx="150" cy="50" r="8" fill="#166b78"/>
+    ${cab('#1a1c21', '<rect x="234" y="20" width="6" height="60" fill="#1fd17a"/>')}` },
+};
+
+/* A barrier: four old tyres strapped together with one more stacked on top. */
+function tyre(cx, cy, r, top) {
+  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${top ? '#2a2c32' : '#202227'}" stroke="#5b606a" stroke-width="1.5"/>
+    <circle cx="${cx}" cy="${cy}" r="${r - 4}" fill="none" stroke="#393c43" stroke-width="2.5" stroke-dasharray="3 3"/>
+    <circle cx="${cx}" cy="${cy}" r="${r * 0.5}" fill="#0c0d10"/>
+    <circle cx="${cx}" cy="${cy}" r="${r * 0.5}" fill="none" stroke="#6a6f79" stroke-width="1.5"/>
+    <path d="M${cx - r * 0.72} ${cy - r * 0.42} A${r * 0.86} ${r * 0.86} 0 0 1 ${cx + r * 0.15} ${cy - r * 0.84}" stroke="#8a8f99" stroke-width="2" fill="none" stroke-linecap="round" opacity=".8"/>`;
+}
+const BARRIER_INNER = `<rect x="9" y="9" width="82" height="82" rx="26" fill="none" stroke="${C.red}" stroke-width="5"/>
+  <rect x="9" y="9" width="82" height="82" rx="26" fill="none" stroke="${C.white}" stroke-width="5" stroke-dasharray="10 10"/>
+  ${tyre(30, 30, 19)}${tyre(70, 30, 19)}${tyre(30, 70, 19)}${tyre(70, 70, 19)}${tyre(50, 50, 20, true)}`;
+const BARRIER_SVG = `<svg viewBox="0 0 100 100" aria-hidden="true">${BARRIER_INNER}</svg>`;
+
+/* facing: r, l, d, u. Drawings face right; rotate the group for the rest. */
+function svgFor(type, facing) {
+  const a = ART[type], L = a.len * 100;
+  const f = facing || 'r';
+  if (f === 'r') return `<svg viewBox="0 0 ${L} 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${SHINE}${a.draw()}</svg>`;
+  if (f === 'l') return `<svg viewBox="0 0 ${L} 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${SHINE}<g transform="translate(${L},100) rotate(180)">${a.draw()}</g></svg>`;
+  const t = f === 'd' ? 'translate(100,0) rotate(90)' : `translate(0,${L}) rotate(-90)`;
+  return `<svg viewBox="0 0 100 ${L}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${SHINE}<g transform="${t}">${a.draw()}</g></svg>`;
+}
+
+/* =====================================================================
+   Sessions, settings, helpers
+   ===================================================================== */
+const SESSIONS = [
+  { id: 'fp', name: 'Practice',    short: 'FP',  points: null },
+  { id: 'q',  name: 'Qualifying',  short: 'Q',   points: null },
+  { id: 'sr', name: 'Sprint Race', short: 'SPR', points: [8, 7, 6, 5, 4, 3, 2, 1] },
+  { id: 'gp', name: 'Grand Prix',  short: 'GP',  points: [25, 18, 15, 12, 10, 8, 6, 4, 2, 1] },
+];
+/* Par ranges per grid size: a small grid can't hold as long a puzzle. */
+const PAR = {
+  5: { fp: [3, 5], q: [6, 9],  sr: [10, 13], gp: [14, 40] },
+  6: { fp: [4, 7], q: [8, 13], sr: [14, 20], gp: [21, 40] },
+  7: { fp: [4, 7], q: [8, 13], sr: [14, 20], gp: [21, 40] },
+};
+const GRIDS = [5, 6, 7];
+const SHORT_POOL = ['rival7', 'rival22', 'rival58', 'rival91', 'safety', 'medical', 'marshal'];
+const LONG_POOL = ['transporter', 'recovery', 'tyres', 'fuel'];
+const SIDE_FACING = { r: 'r', l: 'l', t: 'u', b: 'd' };
+const SIDE_NAME = { r: 'right', l: 'left', t: 'top', b: 'bottom' };
+const $ = (id) => document.getElementById(id);
+const sessionById = (id) => SESSIONS.find(s => s.id === id) || SESSIONS[0];
+const parFor = (s, n) => (PAR[n] || PAR[6])[s];
+const keyOf = (s, n) => `${s}-${n}`;
+const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+function fmtTime(ms, tenths) {
+  if (ms == null || !isFinite(ms)) return '—';
+  const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+  const frac = tenths ? String(Math.floor((ms % 1000) / 100)) : String(Math.floor(ms % 1000)).padStart(3, '0');
+  return `${m}:${String(s).padStart(2, '0')}.${frac}`;
+}
+function lsGet(k, fallback) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+let settings = Object.assign({ s: 'fp', n: 6 }, lsGet('ple2-settings', {}));
+if (!SESSIONS.some(x => x.id === settings.s)) settings.s = 'fp';
+if (!GRIDS.includes(settings.n)) settings.n = 6;
+
+/* =====================================================================
+   Stats: browser storage always; the viewer's private db doc when signed in.
+   ===================================================================== */
+function blankStats() {
+  return { v: 1, updatedAt: 0, finishStreak: { cur: 0, best: 0 }, leadStreak: { cur: 0, best: 0 }, sessions: {}, recent: [] };
+}
+function sessStats(st, k) {
+  return st.sessions[k] || (st.sessions[k] = { laps: 0, dnf: 0, led: 0, podiums: 0, hints: 0, totalMs: 0, totalPos: 0, bestMs: null, points: 0 });
+}
+const Store = {
+  stats: Object.assign(blankStats(), lsGet('ple2-stats', {})),
+  ref: null, writing: false, dirty: false,
+  async init() {
+    try {
+      if (!window.claude || typeof window.claude.use !== 'function') return;
+      const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+      if (!db || !user) return;
+      const uid = await user.id();
+      if (!uid) return;
+      this.ref = db.doc('data/users/' + uid + '/pitlane');
+      const snap = await this.ref.get();
+      const remote = snap.exists ? snap.data() : null;
+      if (remote && (remote.updatedAt || 0) > (this.stats.updatedAt || 0)) {
+        this.stats = Object.assign(blankStats(), JSON.parse(JSON.stringify(remote)));
+        lsSet('ple2-stats', this.stats);
+        renderSheet(); updateHud();
+      } else if (this.stats.updatedAt && (!remote || this.stats.updatedAt > (remote.updatedAt || 0))) {
+        this.flush();
+      }
+      $('syncNote').textContent = 'Saved to your account';
+    } catch (e) { this.ref = null; }
+  },
+  save() { this.stats.updatedAt = Date.now(); lsSet('ple2-stats', this.stats); this.flush(); },
+  async flush() {
+    if (!this.ref) return;
+    if (this.writing) { this.dirty = true; return; }
+    this.writing = true;
+    try { await this.ref.set(JSON.parse(JSON.stringify(this.stats))); }
+    catch (e) { if (e && (e.code === 'invalid_argument' || e.code === 'revoked' || e.code === 'not_granted')) { this.ref = null; $('syncNote').textContent = 'Saved in this browser'; } }
+    this.writing = false;
+    if (this.dirty) { this.dirty = false; this.flush(); }
+  },
+};
+
+/* =====================================================================
+   Generator: worker with prefetch, page-thread fallback.
+   ===================================================================== */
+const LIB = pitLib(null);
+const Gen = {
+  worker: null, jobs: new Map(), nextId: 1,
+  // the next lap for each session/grid, kept across visits so long builds are rare
+  buffer: new Map(Object.entries(lsGet('ple2-buffer', {})).filter(([k, p]) => p && p.rev === 2 && p.exit && p.vehicles)),
+  persist() { lsSet('ple2-buffer', Object.fromEntries(this.buffer)); },
+  start() {
+    try {
+      const src = '(' + pitLib.toString() + ')(self);';
+      this.worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+      this.worker.onmessage = (e) => this.done(e.data.id, e.data.puzzle);
+      this.worker.onerror = (e) => { if (e && e.preventDefault) e.preventDefault(); this.fallback(); };
+    } catch (e) { this.worker = null; }
+  },
+  fallback() {
+    if (this.worker) { try { this.worker.terminate(); } catch (e) {} }
+    this.worker = null;
+    for (const [id, job] of this.jobs) this.runLocal(id, job);
+  },
+  launch(key) {
+    const id = this.nextId++, [s, n] = key.split('-'), [lo, hi] = parFor(s, +n);
+    const job = { key, resolvers: [], msg: { type: 'gen', id, n: +n, lo, hi, seed: (Math.random() * 4294967296) >>> 0, budget: 20000 } };
+    this.jobs.set(id, job);
+    if (this.worker) this.worker.postMessage(job.msg); else this.runLocal(id, job);
+    return job;
+  },
+  runLocal(id, job) {
+    setTimeout(() => { if (!this.jobs.has(id)) return; const m = job.msg; this.done(id, LIB.generate(m.n, m.lo, m.hi, m.seed, m.budget)); }, 40);
+  },
+  done(id, puzzle) {
+    const job = this.jobs.get(id); if (!job) return;
+    this.jobs.delete(id);
+    if (job.resolvers.length) job.resolvers.forEach(fn => fn(puzzle));
+    else { this.buffer.set(job.key, puzzle); this.persist(); }
+  },
+  get(key) {
+    if (this.buffer.has(key)) { const p = this.buffer.get(key); this.buffer.delete(key); this.persist(); return Promise.resolve(p); }
+    for (const job of this.jobs.values()) if (job.key === key) return new Promise(res => job.resolvers.push(res));
+    // a prefetch for another session would hold the worker: restart it
+    if (this.worker && this.jobs.size) { this.worker.terminate(); this.jobs.clear(); this.start(); }
+    const job = this.launch(key);
+    return new Promise(res => job.resolvers.push(res));
+  },
+  prefetch(key) {
+    if (this.buffer.has(key)) return;
+    for (const job of this.jobs.values()) if (job.key === key) return;
+    this.launch(key);
+  },
+};
+
+/* =====================================================================
+   Game state
+   ===================================================================== */
+const board = $('board'), frame = $('frame'), zone = $('zone');
+let puzzle = null, vehicles = [], blocks = [], N = 6, SIDE = 'r', LANE = 2, GOAL = 4;
+let history = [], moves = 0, undos = 0, restarts = 0, hints = 0;
+let won = false, replay = false, locked = true, loading = false, cell = 64, ticket = 0;
+const clock = { start: 0, paused: 0, hiddenAt: 0, running: false, final: null };
+
+function clockStart() { clock.start = performance.now(); clock.paused = 0; clock.final = null; clock.running = true; clock.hiddenAt = document.hidden ? performance.now() : 0; requestAnimationFrame(tick); }
+function clockNow() {
+  if (!clock.running) return clock.final;
+  const now = performance.now();
+  return now - clock.start - clock.paused - (clock.hiddenAt ? now - clock.hiddenAt : 0);
+}
+function clockStop() { clock.final = clockNow(); clock.running = false; }
+function clockReset() { clock.running = false; clock.final = null; }
+function tick() {
+  const el = $('tTime');
+  if (clock.running) { el.textContent = fmtTime(clockNow(), true); el.className = ''; requestAnimationFrame(tick); }
+}
+document.addEventListener('visibilitychange', () => {
+  if (!clock.running) return;
+  const now = performance.now();
+  if (document.hidden) clock.hiddenAt = now;
+  else if (clock.hiddenAt) { clock.paused += now - clock.hiddenAt; clock.hiddenAt = 0; rc('Red flag. The clock was paused while you were away.', true); requestAnimationFrame(tick); }
+});
+
+function lapActive() { return puzzle && !won && !replay && !loading && (moves > 0 || history.length > 0 || restarts > 0); }
+
+function rc(msg, flash) {
+  $('rcMsg').textContent = msg;
+  const box = $('rc');
+  if (flash && !reduced()) { box.classList.remove('flash'); void box.offsetWidth; box.classList.add('flash'); }
+}
+
+/* ---------- pickers ---------- */
+function renderPickers() {
+  $('segSession').innerHTML = SESSIONS.map(s => {
+    const [lo, hi] = parFor(s.id, settings.n);
+    return `<button type="button" data-s="${s.id}" aria-pressed="${s.id === settings.s}"><b>${s.name}</b><small>par ${lo}${s.id === 'gp' ? '+' : '–' + hi}</small></button>`;
+  }).join('');
+  $('segGrid').innerHTML = GRIDS.map(n =>
+    `<button type="button" data-n="${n}" aria-pressed="${n === settings.n}" aria-label="${n} by ${n} grid"><b>${n}×${n}</b></button>`).join('');
+}
+$('segSession').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) changeSettings(b.dataset.s, settings.n); });
+$('segGrid').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) changeSettings(settings.s, +b.dataset.n); });
+
+function changeSettings(s, n) {
+  if (s === settings.s && n === settings.n) return;
+  const apply = () => { settings = { s, n }; lsSet('ple2-settings', settings); renderPickers(); renderSheet(); newLap(); };
+  if (lapActive()) askRetire(`Switch to ${sessionById(s).name} on ${n}×${n}? This lap is retired as a DNF and your streaks reset.`, apply);
+  else apply();
+}
+
+/* ---------- confirm bar ---------- */
+let confirmAction = null;
+function askRetire(text, action) {
+  $('confirmTxt').textContent = text;
+  confirmAction = action;
+  $('confirm').hidden = false;
+  $('cYes').focus();
+}
+$('cYes').onclick = () => { $('confirm').hidden = true; const a = confirmAction; confirmAction = null; recordDNF(); if (a) a(); };
+$('cNo').onclick = () => { $('confirm').hidden = true; confirmAction = null; rc('Keep pushing. The clock is still running.'); };
+
+/* ---------- loading laps ---------- */
+async function newLap() {
+  const key = keyOf(settings.s, settings.n), my = ++ticket;
+  loading = true; locked = true;
+  $('confirm').hidden = true;
+  const S = sessionById(settings.s), t0 = Date.now();
+  let tickTimer = null;
+  const label = () => `Building a ${S.name} grid on ${settings.n}×${settings.n}… ${Math.floor((Date.now() - t0) / 1000)}s`;
+  const slow = setTimeout(() => {
+    if (my !== ticket) return;
+    $('formationTxt').textContent = label();
+    $('formation').hidden = false;
+    rc(`Formation lap. Building a ${S.name} grid${S.id === 'gp' ? '. Long races take a few seconds to set up' : ''}.`);
+    tickTimer = setInterval(() => { if (my === ticket) $('formationTxt').textContent = label(); }, 500);
+  }, 120);
+  const pz = await Gen.get(key);
+  clearTimeout(slow); clearInterval(tickTimer);
+  if (my !== ticket) return;
+  $('formation').hidden = true;
+  loading = false;
+  replay = false;
+  startPuzzle(pz);
+  Gen.prefetch(key);
+}
+function replayLap() { if (!puzzle) return; replay = true; startPuzzle(puzzle); }
+
+/* Give each lap a mix of rivals and support vehicles, each pointing its own way. */
+function dressPuzzle(pz) {
+  if (pz.types) return;
+  let shortBag = [], longBag = [];
+  pz.types = pz.vehicles.map((v, k) => {
+    if (k === 0) return 'race';
+    if (v.len === 2) { if (!shortBag.length) shortBag = shuffle(SHORT_POOL.slice()); return shortBag.pop(); }
+    if (!longBag.length) longBag = shuffle(LONG_POOL.slice()); return longBag.pop();
+  });
+  pz.facing = pz.vehicles.map((v, k) => k === 0 ? SIDE_FACING[pz.exit.side] : v.dir === 'h' ? (Math.random() < 0.5 ? 'r' : 'l') : (Math.random() < 0.5 ? 'u' : 'd'));
+}
+
+function startPuzzle(pz) {
+  dressPuzzle(pz);
+  puzzle = pz; N = pz.n; SIDE = pz.exit.side; LANE = pz.exit.lane;
+  GOAL = SIDE === 'r' || SIDE === 'b' ? N - 2 : 0;
+  history = []; moves = 0; undos = 0; restarts = 0; hints = 0; won = false; locked = true;
+  clockReset();
+  vehicles = pz.vehicles.map((v, k) => ({ ...v, type: pz.types[k], facing: pz.facing[k] }));
+  blocks = pz.blocks.map(c => ({ ...c }));
+  buildBoard();
+  updateHud();
+  $('tTime').textContent = '0:00.000'; $('tTime').className = 'idle';
+  rc(replay ? 'Replay lap. This one is not timed and does not count.'
+    : `Pit exit on the ${SIDE_NAME[SIDE]} this lap. The clock starts when the lights go out.`);
+  startLights(() => {
+    locked = false; board.classList.remove('locked');
+    if (!replay) clockStart();
+  });
+}
+
+function resetPositions() {
+  vehicles.forEach((v, i) => { const o = puzzle.vehicles[i]; v.r = o.r; v.c = o.c; });
+}
+const heroPos = () => vehicles[0].dir === 'h' ? vehicles[0].c : vehicles[0].r;
+
+/* ---------- board ---------- */
+function sizeBoard() {
+  const kerb = 14, w = zone.clientWidth || 600, sideways = SIDE === 'l' || SIDE === 'r';
+  const byW = (w - kerb * (sideways ? 3 : 2) - 8) / (N + (sideways ? 0.5 : 0));
+  const byH = Math.max(240, window.innerHeight * 0.6) / (N + (sideways ? 0 : 0.5));
+  cell = Math.max(34, Math.min(80, Math.floor(Math.min(byW, byH))));
+  frame.style.setProperty('--cell', cell + 'px');
+  zone.style.setProperty('--cell', cell + 'px');
+  vehicles.forEach((v, i) => place(i));
+  blocks.forEach(placeBlock);
+}
+function setExitGeometry() {
+  board.style.setProperty('--n', N);
+  frame.style.setProperty('--lane', LANE);
+  board.dataset.axis = SIDE === 'l' || SIDE === 'r' ? 'h' : 'v';
+  zone.dataset.side = SIDE;
+  $('exit').dataset.side = SIDE;
+}
+function buildBoard() {
+  board.innerHTML = '';
+  setExitGeometry();
+  board.classList.add('locked');
+  const lineName = SIDE === 'l' || SIDE === 'r' ? 'row' : 'column';
+  board.setAttribute('aria-label', `Pit lane grid, ${N} by ${N}. Exit on the ${SIDE_NAME[SIDE]} at ${lineName} ${LANE + 1}.`);
+  blocks.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'barrier'; el.innerHTML = BARRIER_SVG; el.setAttribute('aria-hidden', 'true');
+    board.appendChild(el); c.el = el;
+  });
+  vehicles.forEach((v, i) => {
+    const el = document.createElement('div');
+    el.className = 'veh' + (i === 0 ? ' hero' : ''); el.tabIndex = 0; el.dataset.i = i;
+    el.setAttribute('role', 'button');
+    el.setAttribute('aria-label', `${ART[v.type].name}, ${v.dir === 'h' ? 'moves left and right' : 'moves up and down'}`);
+    el.innerHTML = svgFor(v.type, v.facing);
+    board.appendChild(el); v.el = el;
+    attachDrag(el, i);
+  });
+  sizeBoard();
+  $('exit').classList.remove('open');
+}
+const INSET = 4;
+function place(i, posOverride) {
+  const v = vehicles[i];
+  const w = v.dir === 'h' ? v.len : 1, h = v.dir === 'v' ? v.len : 1;
+  v.el.style.width = (w * cell - INSET * 2) + 'px';
+  v.el.style.height = (h * cell - INSET * 2) + 'px';
+  const c = v.dir === 'h' && posOverride != null ? posOverride : v.c;
+  const r = v.dir === 'v' && posOverride != null ? posOverride : v.r;
+  v.el.style.transform = `translate(${c * cell + INSET}px, ${r * cell + INSET}px)`;
+}
+function placeBlock(c) {
+  const pad = 3;
+  Object.assign(c.el.style, { left: (c.c * cell + pad) + 'px', top: (c.r * cell + pad) + 'px', width: (cell - pad * 2) + 'px', height: (cell - pad * 2) + 'px' });
+}
+function grid() {
+  const g = new Array(N * N).fill(-1);
+  blocks.forEach(c => { g[c.r * N + c.c] = -2; });
+  vehicles.forEach((v, i) => { for (let k = 0; k < v.len; k++) { const r = v.dir === 'h' ? v.r : v.r + k, c = v.dir === 'h' ? v.c + k : v.c; g[r * N + c] = i; } });
+  return g;
+}
+function range(i) {
+  const v = vehicles[i], g = grid();
+  const at = (p) => v.dir === 'h' ? g[v.r * N + p] : g[p * N + v.c];
+  const start = v.dir === 'h' ? v.c : v.r;
+  let lo = start, hi = start;
+  while (lo - 1 >= 0 && at(lo - 1) === -1) lo--;
+  while (hi + v.len < N && at(hi + v.len) === -1) hi++;
+  return [lo, hi];
+}
+
+/* ---------- moves ---------- */
+function commit(i, to) {
+  const v = vehicles[i], from = v.dir === 'h' ? v.c : v.r;
+  if (to === from) return;
+  const last = history[history.length - 1];
+  if (last && last.i === i && !last.sealed) {
+    last.to = to;
+    if (last.to === last.from) { history.pop(); moves--; }
+  } else { history.push({ i, from, to }); moves++; }
+  if (v.dir === 'h') v.c = to; else v.r = to;
+  clearHint(); place(i); updateHud();
+  if (i === 0 && heroPos() === GOAL) finish();
+}
+function sealLast() { const last = history[history.length - 1]; if (last) last.sealed = true; }
+function undo() {
+  if (won || locked || !history.length) return;
+  const h = history.pop(), v = vehicles[h.i];
+  if (v.dir === 'h') v.c = h.from; else v.r = h.from;
+  moves--; undos++;
+  clearHint(); place(h.i); updateHud();
+}
+function restart() {
+  if (won || locked || !puzzle || !history.length) return;
+  resetPositions(); history = []; moves = 0; restarts++;
+  clearHint(); vehicles.forEach((v, i) => place(i)); updateHud();
+  rc(replay ? 'Back to the grid.' : 'Back to the grid. The clock keeps running.');
+}
+
+let selected = -1;
+function attachDrag(el, i) {
+  let startPt = 0, startPos = 0, lo = 0, hi = 0, dragging = false, moved = false;
+  el.addEventListener('pointerdown', (e) => {
+    if (won || loading) return;
+    if (locked) { rc('Jump start! Wait for the lights to go out.', true); return; }
+    const v = vehicles[i];
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
+    startPt = v.dir === 'h' ? e.clientX : e.clientY;
+    startPos = v.dir === 'h' ? v.c : v.r;
+    [lo, hi] = range(i);
+    dragging = true; moved = false;
+    el.classList.add('dragging');
+    select(i);
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const v = vehicles[i], d = ((v.dir === 'h' ? e.clientX : e.clientY) - startPt) / cell;
+    if (Math.abs(d) > 0.05) moved = true;
+    place(i, Math.max(lo, Math.min(hi, startPos + d)));
+  });
+  const end = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    el.classList.remove('dragging');
+    const v = vehicles[i], d = ((v.dir === 'h' ? e.clientX : e.clientY) - startPt) / cell;
+    if (Math.abs(d) > 0.05) moved = true;
+    const p = Math.round(Math.max(lo, Math.min(hi, startPos + d)));
+    sealLast();
+    if (moved && p !== startPos) commit(i, p); else place(i);
+    sealLast();
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  el.addEventListener('focus', () => select(i));
+  el.addEventListener('keydown', (e) => {
+    if (won || loading) return;
+    const v = vehicles[i];
+    let delta = 0;
+    if (v.dir === 'h' && e.key === 'ArrowLeft') delta = -1;
+    if (v.dir === 'h' && e.key === 'ArrowRight') delta = 1;
+    if (v.dir === 'v' && e.key === 'ArrowUp') delta = -1;
+    if (v.dir === 'v' && e.key === 'ArrowDown') delta = 1;
+    if (!delta) return;
+    e.preventDefault();
+    if (locked) { rc('Jump start! Wait for the lights to go out.', true); return; }
+    const [a, b] = range(i), cur = v.dir === 'h' ? v.c : v.r, to = cur + delta;
+    if (to >= a && to <= b) commit(i, to);
+  });
+}
+function select(i) { if (selected !== i) { sealLast(); selected = i; } }
+
+/* ---------- hints ---------- */
+let ghostEl = null;
+function clearHint() { if (ghostEl) { ghostEl.remove(); ghostEl = null; } vehicles.forEach(v => v.el && v.el.classList.remove('hint')); }
+function hint() {
+  if (won || locked || !puzzle) return;
+  clearHint();
+  const res = LIB.solveState(N, vehicles.map(v => ({ r: v.r, c: v.c, len: v.len, dir: v.dir })), blocks, GOAL);
+  if (!res || res.len === 0 || res.i == null) return;
+  if (!replay) hints++;
+  sealLast();
+  const v = vehicles[res.i], p = res.p;
+  const r = v.dir === 'h' ? v.r : p, c = v.dir === 'h' ? p : v.c;
+  ghostEl = document.createElement('div');
+  ghostEl.className = 'ghost';
+  Object.assign(ghostEl.style, {
+    left: (c * cell + INSET) + 'px', top: (r * cell + INSET) + 'px',
+    width: ((v.dir === 'h' ? v.len : 1) * cell - INSET * 2) + 'px',
+    height: ((v.dir === 'v' ? v.len : 1) * cell - INSET * 2) + 'px',
+  });
+  board.appendChild(ghostEl);
+  void v.el.offsetWidth; v.el.classList.add('hint');
+  const cur = v.dir === 'h' ? v.c : v.r, dist = Math.abs(p - cur);
+  const dir = v.dir === 'h' ? (p > cur ? 'right' : 'left') : (p > cur ? 'down' : 'up');
+  const who = res.i === 0 ? 'your race car' : 'the ' + ART[v.type].call;
+  rc(`Pit wall: move ${who} ${dir} ${dist}. ${res.len} move${res.len === 1 ? '' : 's'} to the flag.`, true);
+}
+
+/* =====================================================================
+   Finishing and stats
+   ===================================================================== */
+function posFor(m, par) { return Math.min(20, Math.max(1, m - par + 1)); }
+
+function finish() {
+  won = true; locked = true;
+  if (!replay) clockStop();
+  const hero = vehicles[0];
+  $('exit').classList.add('open');
+  const far = (N + 2.5) * cell, back = -3.5 * cell;
+  const tx = SIDE === 'r' ? far : SIDE === 'l' ? back : hero.c * cell + INSET;
+  const ty = SIDE === 'b' ? far : SIDE === 't' ? back : hero.r * cell + INSET;
+  setTimeout(() => { hero.el.classList.add('leaving'); hero.el.style.transform = `translate(${tx}px, ${ty}px)`; }, 120);
+  const ms = replay ? null : clock.final;
+  if (ms != null) $('tTime').textContent = fmtTime(ms);
+  const res = replay ? null : recordLap(ms);
+  if (res) $('tTime').className = 'sec-' + res.s2;
+  setTimeout(() => showFinish(res), reduced() ? 100 : 950);
+}
+
+function recordLap(ms) {
+  const st = Store.stats, S = sessionById(settings.s), k = keyOf(settings.s, N), ss = sessStats(st, k);
+  const par = puzzle.par, pos = posFor(moves, par);
+  const avgBefore = ss.laps ? ss.totalMs / ss.laps : null;
+  const pb = ss.bestMs == null || ms < ss.bestMs;
+  const s1 = pos === 1 ? 'purple' : pos <= 3 ? 'green' : 'yellow';
+  const s2 = pb ? 'purple' : (avgBefore != null && ms < avgBefore) ? 'green' : 'yellow';
+  const s3 = hints === 0 && undos === 0 && restarts === 0 ? 'purple' : hints === 0 ? 'green' : 'yellow';
+  const led = pos === 1 && hints === 0;
+  const fastestLapPoint = S.points && pb && ss.laps > 0 && pos <= 10 ? 1 : 0;
+  const pts = S.points ? (S.points[pos - 1] || 0) + fastestLapPoint : 0;
+  const prevBest = ss.bestMs;
+  ss.laps++; ss.totalMs += ms; ss.totalPos += pos; ss.hints += hints; ss.points += pts;
+  if (pos <= 3) ss.podiums++;
+  if (led) ss.led++;
+  if (pb) ss.bestMs = ms;
+  st.finishStreak.cur++; st.finishStreak.best = Math.max(st.finishStreak.best, st.finishStreak.cur);
+  if (led) { st.leadStreak.cur++; st.leadStreak.best = Math.max(st.leadStreak.best, st.leadStreak.cur); } else st.leadStreak.cur = 0;
+  st.recent.unshift({ s: settings.s, n: N, ms, pos, moves, par, hints, sec: s2, at: Date.now() });
+  st.recent = st.recent.slice(0, 12);
+  Store.save();
+  renderSheet();
+  return { ms, pos, par, pts, pb, prevBest, avgBefore, s1, s2, s3, led, fastestLapPoint, S, ss };
+}
+function recordDNF() {
+  if (!puzzle || replay || won) return;
+  const st = Store.stats, ss = sessStats(st, keyOf(settings.s, N));
+  ss.dnf++;
+  st.finishStreak.cur = 0; st.leadStreak.cur = 0;
+  st.recent.unshift({ s: settings.s, n: N, dnf: true, moves, par: puzzle.par, at: Date.now() });
+  st.recent = st.recent.slice(0, 12);
+  clockReset();
+  won = true;
+  Store.save(); renderSheet();
+}
+
+function showFinish(res) {
+  const S = sessionById(settings.s);
+  $('fEyebrow').textContent = `Chequered flag · ${S.name} · ${N}×${N}`;
+  $('fMoves').textContent = moves;
+  $('fPar').textContent = puzzle.par;
+  const pos = posFor(moves, puzzle.par);
+  $('fPos').textContent = 'P' + pos;
+  const sectors = $('fSectors');
+  if (!res) {
+    $('fTitle').innerHTML = 'Replay <span>complete</span>';
+    $('fTime').textContent = 'Not timed'; $('fTime').className = '';
+    $('fTimeNote').textContent = '';
+    sectors.hidden = true;
+    $('fPts').textContent = '—';
+    $('fMsg').textContent = pos === 1 ? 'Perfect line. That is the fastest way out.' : `The fastest way out takes ${puzzle.par} moves.`;
+  } else {
+    sectors.hidden = false;
+    let sub = '';
+    if (pos === 1 && S.id === 'q') sub = 'Pole position';
+    else if (res.led) sub = 'Lap led';
+    else if (pos === 1) sub = 'With help from the pit wall';
+    else if (pos <= 3) sub = 'Podium';
+    else if (pos <= 10) sub = 'In the points';
+    $('fTitle').innerHTML = `P${pos}${sub ? ' <span>· ' + sub + '</span>' : ''}`;
+    $('fTime').textContent = fmtTime(res.ms);
+    $('fTime').className = 'sec-' + res.s2;
+    $('fTimeNote').textContent = res.s2 === 'purple'
+      ? (res.prevBest == null ? 'Purple sector · first timed lap' : `Purple sector · new fastest lap (was ${fmtTime(res.prevBest)})`)
+      : res.s2 === 'green' ? `Green · beat your average ${fmtTime(res.avgBefore)}` : `Fastest ${fmtTime(res.ss.bestMs)} · avg ${fmtTime(res.ss.totalMs / res.ss.laps)}`;
+    ['s1', 's2', 's3'].forEach(s => { $(s).className = res[s]; });
+    $('fPts').textContent = S.points ? res.pts : '—';
+    const bits = [];
+    if (S.points) bits.push(`${res.pts} point${res.pts === 1 ? '' : 's'}${res.fastestLapPoint ? ', including 1 for fastest lap' : ''}.`);
+    else bits.push(`${S.name} doesn't score points.`);
+    if (pos > 1) bits.push(`Par is ${puzzle.par}: every extra move costs a place.`);
+    if (hints) bits.push(`${hints} pit stop${hints === 1 ? '' : 's'} for hints.`);
+    const fs = Store.stats.finishStreak.cur, ls = Store.stats.leadStreak.cur;
+    if (ls > 1) bits.push(`${ls} laps led in a row.`); else if (fs > 1) bits.push(`${fs} finishes in a row.`);
+    $('fMsg').textContent = bits.join(' ');
+  }
+  $('overlay').hidden = false;
+  $('fNext').focus();
+}
+
+/* ---------- HUD + timing sheet ---------- */
+function updateHud() {
+  const S = sessionById(settings.s), ss = Store.stats.sessions[keyOf(settings.s, N)];
+  $('tLap').textContent = replay ? 'R' : String((ss ? ss.laps + ss.dnf : 0) + (won && !replay ? 0 : 1));
+  $('tLapLbl').textContent = replay ? 'Replay' : 'Lap';
+  $('tLapBox').classList.toggle('replay', replay);
+  $('tSession').textContent = S.name;
+  $('tGrid').textContent = `${N}×${N} grid`;
+  $('tMoves').textContent = moves;
+  $('tPar').textContent = puzzle ? puzzle.par : '–';
+  $('tMovesBox').classList.toggle('over', !!puzzle && moves > puzzle.par);
+  $('bUndo').disabled = !history.length || won || locked;
+  $('bReset').disabled = !history.length || won || locked;
+  $('bHint').disabled = won || locked || !puzzle;
+}
+function tile(label, value, cls, extra) { return `<div class="${extra || ''}"><dt>${label}</dt><dd class="${cls || ''}">${value}</dd></div>`; }
+function renderSheet() {
+  const st = Store.stats, S = sessionById(settings.s), k = keyOf(settings.s, settings.n), ss = st.sessions[k];
+  $('scopeName').textContent = `${S.name} · ${settings.n}×${settings.n}`;
+  const laps = ss ? ss.laps : 0;
+  $('tilesSession').innerHTML = [
+    tile('Fastest lap', ss && ss.bestMs != null ? fmtTime(ss.bestMs) : '—', ss && ss.bestMs != null ? 'sec-purple' : ''),
+    tile('Average lap', laps ? fmtTime(ss.totalMs / laps) : '—'),
+    tile('Laps', laps ? `${laps} <small>${ss.dnf} DNF</small>` : (ss && ss.dnf ? `0 <small>${ss.dnf} DNF</small>` : '0')),
+    tile('Laps led', laps ? `${ss.led} <small>${Math.round(ss.led / laps * 100)}%</small>` : '0'),
+    tile('Podiums', laps ? ss.podiums : '0'),
+    tile('Avg finish', laps ? 'P' + (ss.totalPos / laps).toFixed(1) : '—'),
+    tile('Pit stops', ss ? ss.hints : '0'),
+    tile('Points', S.points ? (ss ? ss.points : 0) : '<small>none in ' + S.name + '</small>'),
+  ].join('');
+  let total = 0, allLaps = 0, allLed = 0;
+  Object.values(st.sessions).forEach(x => { total += x.points; allLaps += x.laps; allLed += x.led; });
+  $('tilesChamp').innerHTML = [
+    tile('Championship points', total, '', 'wide'),
+    tile('Finish streak', `${st.finishStreak.cur} <small>best ${st.finishStreak.best}</small>`),
+    tile('Lead streak', `${st.leadStreak.cur} <small>best ${st.leadStreak.best}</small>`),
+    tile('Total laps', allLaps),
+    tile('Total laps led', allLed),
+  ].join('');
+  const rec = st.recent;
+  $('recent').innerHTML = rec.length ? rec.map(r => {
+    const s = sessionById(r.s);
+    if (r.dnf) return `<li class="dnf"><span class="rk">${s.short} ${r.n}×${r.n}</span><span class="pos">DNF</span><span class="mv">${r.moves} moves</span><span class="tm">—</span></li>`;
+    return `<li><span class="rk">${s.short} ${r.n}×${r.n}</span><span class="pos">P${r.pos}</span><span class="mv">${r.moves}/${r.par}${r.hints ? ' · ' + r.hints + ' pit' : ''}</span><span class="tm sec-${r.sec}">${fmtTime(r.ms)}</span></li>`;
+  }).join('') : '<li><span class="empty" style="grid-column:1/-1">No laps yet. Finish one to set a time.</span></li>';
+}
+let clearArmed = null;
+$('bClear').onclick = () => {
+  const b = $('bClear');
+  if (!clearArmed) {
+    b.textContent = 'Click again to clear all stats'; b.classList.add('armed');
+    clearArmed = setTimeout(() => { clearArmed = null; b.textContent = 'Clear timing sheet'; b.classList.remove('armed'); }, 4000);
+    return;
+  }
+  clearTimeout(clearArmed); clearArmed = null;
+  b.textContent = 'Clear timing sheet'; b.classList.remove('armed');
+  Store.stats = blankStats(); Store.save(); renderSheet(); updateHud();
+  rc('Timing sheet cleared.');
+};
+
+function renderPaddock() {
+  const row = (k) => { const a = ART[k]; return `<li><div class="art">${svgFor(k, 'r')}</div><div><b>${a.name}</b><span>${a.note}</span></div></li>`; };
+  const keys = Object.keys(ART);
+  $('paddock').innerHTML =
+    row('race') +
+    '<h4>Rivals</h4>' + keys.filter(k => ART[k].group === 'rival').map(row).join('') +
+    '<h4>Support vehicles</h4>' + keys.filter(k => ART[k].group === 'support').map(row).join('') +
+    `<h4>Track</h4><li><div class="art"><svg viewBox="0 0 100 100" style="height:24px;width:24px" aria-hidden="true">${BARRIER_INNER}</svg></div><div><b>Tyre barrier</b><span>A closed bay. Nothing can drive through it.</span></div></li>`;
+}
+
+/* ---------- start lights ---------- */
+let lightTimers = [];
+function startLights(done) {
+  const L = $('lights'), pods = [...L.querySelectorAll('.pod')];
+  lightTimers.forEach(clearTimeout); lightTimers = [];
+  L.classList.remove('go'); pods.forEach(p => p.classList.remove('on'));
+  if (reduced()) { L.classList.add('go'); done(); return; }
+  pods.forEach((p, k) => lightTimers.push(setTimeout(() => p.classList.add('on'), 170 * (k + 1))));
+  const hold = 170 * 6 + 200 + Math.random() * 500;
+  lightTimers.push(setTimeout(() => { pods.forEach(p => p.classList.remove('on')); L.classList.add('go'); done(); }, hold));
+}
+
+/* ---------- wiring ---------- */
+$('bUndo').onclick = undo;
+$('bReset').onclick = restart;
+$('bHint').onclick = hint;
+$('bNew').onclick = () => {
+  if (lapActive()) askRetire('Start a new lap? This one is retired as a DNF and your streaks reset.', newLap);
+  else newLap();
+};
+$('fRetry').onclick = () => { $('overlay').hidden = true; replayLap(); };
+$('fNext').onclick = () => { $('overlay').hidden = true; newLap(); };
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!$('overlay').hidden) { if (e.key === 'Escape') $('overlay').hidden = true; return; }
+  if (e.target.closest && e.target.closest('input, textarea')) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z' || k === 'u') undo();
+  else if (k === 'r') restart();
+  else if (k === 'h') hint();
+  else if (k === 'n') $('bNew').click();
+});
+window.addEventListener('resize', () => { if (puzzle) sizeBoard(); });
+
+renderPickers();
+renderPaddock();
+renderSheet();
+updateHud();
+N = settings.n; LANE = (N - 1) >> 1; SIDE = 'r';
+setExitGeometry(); sizeBoard();
+Gen.start();
+newLap();
+Store.init();
+</script>
+</body>
+</html>
