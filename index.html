@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="A Formula 1 themed sliding-block puzzle. Clear pit lane and get your race car to the exit.">
 <meta name="theme-color" content="#131519">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Pit Lane">
 <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -40,6 +43,11 @@
   --kerb: 14px;
   --cell: 64px;
   --lane: 2;
+  /* iPhone status bar and home indicator. iOS blurs a little below the status bar's reported
+     height, so clear 14px more, but only where there is a status bar (inset 0 → nothing extra) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --clear-top: calc(var(--safe-top) + min(14px, var(--safe-top) * 100));
 }
 [hidden] { display: none !important; }
 html, body { min-height: 100%; }
@@ -57,7 +65,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 .shell {
   max-width: 1180px; margin: 0 auto;
-  padding-block: 18px 40px;
+  padding-block: calc(18px + var(--clear-top)) calc(40px + var(--safe-bottom));
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   display: flex; flex-direction: column; gap: 18px;
@@ -292,7 +300,7 @@ details.paddock-box summary::-webkit-details-marker { display: none; }
 .overlay {
   position: fixed; inset: 0; background: rgba(8,9,11,.74); display: grid; place-items: center; z-index: 20;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 16px; backdrop-filter: blur(3px); overflow-y: auto;
+  padding-block: calc(16px + var(--clear-top)) calc(16px + var(--safe-bottom)); backdrop-filter: blur(3px); overflow-y: auto;
 }
 .card { width: min(440px, 100%); background: var(--asphalt-2); border-radius: 12px; overflow: hidden; border: 1px solid var(--asphalt-3); box-shadow: 0 30px 80px -20px #000; }
 .flag { height: 48px; background: repeating-conic-gradient(var(--ink) 0 25%, var(--console) 0 50%) 0 0 / 24px 24px; animation: wave 1.6s linear infinite; }
@@ -323,7 +331,7 @@ details.paddock-box summary::-webkit-details-marker { display: none; }
 
 /* ---------- phones: one screen for the race, the board in the middle ---------- */
 @media (max-width: 600px) {
-  .shell { padding-block: 8px 28px; gap: 8px; }
+  .shell { padding-block: calc(8px + var(--clear-top)) calc(28px + var(--safe-bottom)); gap: 8px; }
   .top { flex-wrap: nowrap; height: 32px; }
   .brand h1 { font-size: 24px; }
   .brand .tag { display: none; }
@@ -331,8 +339,11 @@ details.paddock-box summary::-webkit-details-marker { display: none; }
   .pod { padding: 2px; gap: 2px; border-radius: 3px; }
   .pod i { width: 9px; height: 9px; }
   .track, .play { gap: 8px; }
-  /* header (32) + the padding and gap around it (24): the rest of the screen is the race */
-  .play { min-height: calc(100vh - 56px); min-height: calc(100svh - 56px); }
+  /* header (32) + the padding and gap around it (24) + the status bar and home indicator: the rest of the screen is the race */
+  .play {
+    min-height: calc(100vh - 56px - var(--clear-top) - var(--safe-bottom));
+    min-height: calc(100svh - 56px - var(--clear-top) - var(--safe-bottom));
+  }
 
   .timing { order: -1; grid-template-columns: auto minmax(0, 1fr) auto auto auto; grid-template-areas: "lap sess time moves par"; }
   .timing > * { padding: 5px 8px; }
@@ -1125,9 +1136,11 @@ function sizeBoard() {
   const byW = (w - kerb * (sideways ? 3 : 2) - 8) / (N + (sideways ? 0.5 : 0));
   let byH = Math.max(240, window.innerHeight * 0.6) / (N + (sideways ? 0 : 0.5));
   if (narrow.matches) {
-    // phones: the strip, board, controls and race control share one screen (56 = header and its spacing, 24 = gaps)
-    const other = ['.timing', '.controls', '#rc'].reduce((s, q) => s + document.querySelector(q).offsetHeight, 0) + 56 + 24;
-    byH = Math.max(200, window.innerHeight - other - kerb * (sideways ? 2 : 3)) / (N + (sideways ? 0 : 0.5));
+    // phones: the strip, board, controls and race control share the race area, which CSS sizes to the
+    // screen below the header, status bar and home indicator (24 = the gaps between them)
+    const room = parseFloat(getComputedStyle($('play')).minHeight) || window.innerHeight - 56;
+    const other = ['.timing', '.controls', '#rc'].reduce((s, q) => s + document.querySelector(q).offsetHeight, 0) + 24;
+    byH = Math.max(200, room - other - kerb * (sideways ? 2 : 3)) / (N + (sideways ? 0 : 0.5));
   }
   cell = Math.max(34, Math.min(80, Math.floor(Math.min(byW, byH))));
   frame.style.setProperty('--cell', cell + 'px');
