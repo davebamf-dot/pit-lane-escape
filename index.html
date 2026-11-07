@@ -1052,6 +1052,7 @@ function startPuzzle(pz) {
     : `Pit exit on the ${SIDE_NAME[SIDE]} this lap. The clock starts when the lights go out.`);
   startLights(() => {
     locked = false; board.classList.remove('locked');
+    updateHud();
     if (!replay) clockStart();
   });
 }
