@@ -76,7 +76,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* ---------- layout ---------- */
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
 @media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
-.track { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.track, .play { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 
 /* pickers */
 .pickers { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
@@ -105,13 +105,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: var(--console); border-radius: 8px; overflow: hidden; border: 1px solid var(--asphalt-3);
   font-family: var(--mono); font-variant-numeric: tabular-nums;
 }
-.timing > div { padding: 8px 14px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
-.timing label { font-size: 10px; color: var(--muted); letter-spacing: .14em; text-transform: uppercase; }
+.timing > * { padding: 8px 14px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.timing label, .timing .lbl { font-size: 10px; color: var(--muted); letter-spacing: .14em; text-transform: uppercase; }
 .timing b { font-size: 22px; font-weight: 400; line-height: 1.15; }
 .t-lap { grid-area: lap; background: var(--red); font-family: var(--display); font-weight: 900; font-style: italic; font-size: 24px; line-height: 1; text-transform: uppercase; min-width: 64px; }
 .t-lap small { font-family: var(--mono); font-style: normal; font-weight: 400; font-size: 10px; letter-spacing: .14em; opacity: .85; }
 .t-lap.replay { background: var(--asphalt-3); }
-.t-sess { grid-area: sess; border-left: 1px solid var(--asphalt-3); }
+/* the session cell is a button that opens the pickers on phones; on wider screens the pickers are always shown */
+.t-sess { grid-area: sess; border: 0; border-left: 1px solid var(--asphalt-3); background: none; text-align: left; align-items: flex-start; }
+@media (min-width: 601px) { .t-sess { pointer-events: none; } }
 .t-sess b { font-family: var(--display); font-weight: 700; font-size: 17px; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .t-time { grid-area: time; border-left: 1px solid var(--asphalt-3); min-width: 132px; }
 .t-time b { font-size: 26px; }
@@ -123,12 +125,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .sec-purple { color: var(--purple) !important; }
 .sec-green { color: var(--green) !important; }
 .sec-yellow { color: var(--yellow) !important; }
-@media (max-width: 560px) {
-  .timing { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "lap sess sess sess" "time time moves par"; }
-  .t-time { border-left: 0; border-top: 1px solid var(--asphalt-3); }
-  .t-moves, .t-par { border-top: 1px solid var(--asphalt-3); min-width: 60px; }
-  .timing > div { padding: 6px 10px; }
-}
 
 /* board */
 .board-zone { position: relative; display: flex; justify-content: center; min-width: 0; --stub: calc(var(--cell) * 0.5); }
@@ -320,8 +316,48 @@ details.paddock-box summary::-webkit-details-marker { display: none; }
 }
 .primary.ghosty { background: transparent; border: 1px solid var(--asphalt-3); flex: 0 0 auto; padding-inline: 16px; }
 
+/* ---------- phones: one screen for the race, the board in the middle ---------- */
+@media (max-width: 600px) {
+  .shell { padding-block: 8px 28px; gap: 8px; }
+  .top { flex-wrap: nowrap; height: 32px; }
+  .brand h1 { font-size: 24px; }
+  .brand .tag { display: none; }
+  .lights { padding: 3px 4px; gap: 3px; border-radius: 5px; }
+  .pod { padding: 2px; gap: 2px; border-radius: 3px; }
+  .pod i { width: 9px; height: 9px; }
+  .track, .play { gap: 8px; }
+  /* header (32) + the padding and gap around it (24): the rest of the screen is the race */
+  .play { min-height: calc(100vh - 56px); min-height: calc(100svh - 56px); }
+
+  .timing { order: -1; grid-template-columns: auto minmax(0, 1fr) auto auto auto; grid-template-areas: "lap sess time moves par"; }
+  .timing > * { padding: 5px 8px; }
+  .timing label, .timing .lbl { font-size: 9px; letter-spacing: .08em; white-space: nowrap; }
+  .timing b, .t-time b { font-size: 18px; }
+  .t-lap { min-width: 0; font-size: 20px; }
+  .t-time, .t-moves, .t-par { min-width: 0; }
+  .t-sess { position: relative; padding-right: 24px; }
+  .t-sess b { font-size: 14px; max-width: 100%; }
+  .t-sess::after {
+    content: ""; position: absolute; right: 10px; top: 50%; width: 6px; height: 6px;
+    border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+    transform: translateY(-70%) rotate(45deg); transition: transform .15s;
+  }
+  .t-sess[aria-expanded="true"]::after { transform: translateY(-20%) rotate(-135deg); }
+  .t-sess[aria-expanded="true"] { background: var(--asphalt-2); }
+
+  .pickers { display: none; }
+  .play.picking .pickers { display: grid; }
+
+  .board-zone { flex: 1 1 auto; align-items: center; }
+  .controls { gap: 6px; }
+  .btn { padding: 11px 4px; font-size: 12px; }
+  .btn kbd { display: none; }
+  .rc p { font-size: 13px; padding: 6px 10px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .veh, .veh.leaving { transition: none; }
+  .t-sess::after { transition: none; }
   .flag, .formation .bar::after, .rc.flash > span { animation: none; }
   .veh.hint { animation: none; box-shadow: 0 0 0 4px var(--green); }
 }
@@ -340,7 +376,8 @@ details.paddock-box summary::-webkit-details-marker { display: none; }
 
   <main class="layout">
     <section class="track">
-      <div class="pickers">
+     <div class="play" id="play">
+      <div class="pickers" id="pickers">
         <div>
           <span class="picker-label" id="lblSession">Session · difficulty</span>
           <div class="seg sessions" id="segSession" role="group" aria-labelledby="lblSession"></div>
@@ -353,7 +390,7 @@ details.paddock-box summary::-webkit-details-marker { display: none; }
 
       <div class="timing">
         <div class="t-lap" id="tLapBox"><small id="tLapLbl">Lap</small><span id="tLap">1</span></div>
-        <div class="t-sess"><label id="tGrid">6×6 grid</label><b id="tSession">Practice</b></div>
+        <button class="t-sess" id="tSessBtn" type="button" aria-expanded="false" aria-controls="pickers" title="Change session or grid"><span class="lbl" id="tGrid">6×6 grid</span><b id="tSession">Practice</b></button>
         <div class="t-time"><label>Lap time</label><b id="tTime" class="idle">0:00.000</b></div>
         <div class="t-moves" id="tMovesBox"><label>Moves</label><b id="tMoves">0</b></div>
         <div class="t-par"><label>Par</label><b id="tPar">–</b></div>
@@ -380,6 +417,7 @@ details.paddock-box summary::-webkit-details-marker { display: none; }
       </div>
 
       <div class="rc" id="rc" aria-live="polite"><span>Race control</span><p id="rcMsg">Lights out and away we go.</p></div>
+     </div>
 
       <p class="help"><strong>Get your red race car (the glowing one, #1) out through the pit exit.</strong> The exit moves every lap. Drag any vehicle along its own lane; nothing turns, and tyre barriers can't be crossed. Keyboard: Tab to a vehicle, then use the arrow keys. The clock starts when the lights go out and pauses if you leave the tab. Par is the fewest moves possible; finishing on par is P1.</p>
     </section>
@@ -981,9 +1019,23 @@ function renderPickers() {
 $('segSession').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) changeSettings(b.dataset.s, settings.n); });
 $('segGrid').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) changeSettings(settings.s, +b.dataset.n); });
 
+/* On phones the pickers fold away behind the session cell in the timing strip. */
+const narrow = window.matchMedia('(max-width: 600px)');
+function setPicking(open) {
+  $('play').classList.toggle('picking', open);
+  $('tSessBtn').setAttribute('aria-expanded', String(open));
+}
+function syncNarrow() {
+  $('tSessBtn').tabIndex = narrow.matches ? 0 : -1;
+  if (!narrow.matches) setPicking(false);
+}
+$('tSessBtn').onclick = () => setPicking(!$('play').classList.contains('picking'));
+if (narrow.addEventListener) narrow.addEventListener('change', syncNarrow); else narrow.addListener(syncNarrow);
+syncNarrow();
+
 function changeSettings(s, n) {
   if (s === settings.s && n === settings.n) return;
-  const apply = () => { settings = { s, n }; lsSet('ple2-settings', settings); renderPickers(); renderSheet(); newLap(); };
+  const apply = () => { settings = { s, n }; lsSet('ple2-settings', settings); setPicking(false); renderPickers(); renderSheet(); newLap(); };
   if (lapActive()) askRetire(`Switch to ${sessionById(s).name} on ${n}×${n}? This lap is retired as a DNF and your streaks reset.`, apply);
   else apply();
 }
@@ -1066,7 +1118,12 @@ const heroPos = () => vehicles[0].dir === 'h' ? vehicles[0].c : vehicles[0].r;
 function sizeBoard() {
   const kerb = 14, w = zone.clientWidth || 600, sideways = SIDE === 'l' || SIDE === 'r';
   const byW = (w - kerb * (sideways ? 3 : 2) - 8) / (N + (sideways ? 0.5 : 0));
-  const byH = Math.max(240, window.innerHeight * 0.6) / (N + (sideways ? 0 : 0.5));
+  let byH = Math.max(240, window.innerHeight * 0.6) / (N + (sideways ? 0 : 0.5));
+  if (narrow.matches) {
+    // phones: the strip, board, controls and race control share one screen (56 = header and its spacing, 24 = gaps)
+    const other = ['.timing', '.controls', '#rc'].reduce((s, q) => s + document.querySelector(q).offsetHeight, 0) + 56 + 24;
+    byH = Math.max(200, window.innerHeight - other - kerb * (sideways ? 2 : 3)) / (N + (sideways ? 0 : 0.5));
+  }
   cell = Math.max(34, Math.min(80, Math.floor(Math.min(byW, byH))));
   frame.style.setProperty('--cell', cell + 'px');
   zone.style.setProperty('--cell', cell + 'px');
